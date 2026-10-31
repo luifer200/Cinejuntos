@@ -161,6 +161,8 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
 let unsubscribeOfferCandidates = null;
 let unsubscribeAnswerCandidates = null;
 let unsubscribeConnectionRoom = null;
+let applyingRemotePlayback = false;
+let lastPlaybackAt = 0;
 
 const rtcConfiguration = {
   iceServers: [
@@ -228,12 +230,7 @@ async function startHostConnection(roomId) {
     return;
   }
 
-  if (preview.paused) {
-    aviso.textContent = "Primero reproduce la película.";
-    return;
-  }
-
-  try {
+    try {
     peerConnection = new RTCPeerConnection(rtcConfiguration);
 
     const stream = preview.captureStream();
@@ -307,12 +304,14 @@ async function startGuestConnection(roomId) {
 
     const remoteVideo = document.getElementById("remoteVideo");
 
-    peerConnection.ontrack = event => {
+      peerConnection.ontrack = event 
+=> {
       remoteVideo.srcObject = event.streams[0];
+      remoteVideo.autoplay = false;
+      remoteVideo.pause();
       remoteVideo.style.display = "block";
-      remoteVideo.play().catch(() => {
-        aviso.textContent = "Pulsa reproducir en el vídeo recibido.";
-      });
+
+      aviso.textContent = "Película cargada. Esperando al anfitrión...";
     };
 
     peerConnection.onicecandidate = async event => {
