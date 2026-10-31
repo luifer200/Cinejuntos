@@ -408,7 +408,26 @@ function showRoomPanel(roomId) {
       </p>
     `;
 
-    const roomRef = doc(db, "rooms", roomId);
+if (currentRole === "host") {
+      const startButton = document.createElement("button");
+
+      startButton.textContent = "▶ Iniciar transmisión";
+      startButton.style.cssText =
+        "width:100%;padding:14px;margin-top:15px;border:0;border-radius:10px;background:#8b5cf6;color:white;font-size:16px;font-weight:bold;";
+
+      startButton.addEventListener("click", async () => {
+        startButton.disabled = true;
+        startButton.textContent = "Conectando...";
+
+        await startHostConnection(roomId);
+
+        startButton.textContent = "Transmisión iniciada";
+      });
+
+      panel.appendChild(startButton);
+    }
+    
+const roomRef = doc(db, "rooms", roomId);
 
     unsubscribeRoom = onSnapshot(roomRef, (snapshot) => {
       if (!snapshot.exists()) {
