@@ -489,6 +489,8 @@ if (event.track.kind === "audio") {
   };
 }
 
+if (event.track.kind !== "video") return;
+
 remoteVideo.muted = true;
 remoteVideo.volume = 1;
 remoteVideo.autoplay = false;
