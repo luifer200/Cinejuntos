@@ -361,47 +361,6 @@ async function startGuestConnection(roomId) {
       remoteVideo.pause();
       remoteVideo.style.display = "block";
 
-      let guestButton = document.getElementById("guestPlaybackButton");
-
-      if (!guestButton) {
-        guestButton = document.createElement("button");
-        guestButton.id = "guestPlaybackButton";
-        guestButton.textContent = "▶ Reproducir";
-        guestButton.style.cssText =
-          "width:100%;padding:14px;margin-top:12px;border:0;border-radius:10px;background:#8b5cf6;color:white;font-size:16px;font-weight:bold;";
-
-        remoteVideo.insertAdjacentElement("afterend", guestButton);
-
-        guestButton.addEventListener("click", async () => {
-          const roomSnapshot = await getDoc(roomRef);
-
-          if (
-            !roomSnapshot.exists() ||
-            roomSnapshot.data().allowGuestPlayback !== true
-          ) {
-            aviso.textContent = "El anfitrión no ha permitido controlar la película.";
-            return;
-          }
-
-          if (remoteVideo.paused) {
-            await remoteVideo.play().catch(error => {
-              aviso.textContent = "No se pudo reproducir: " + error.message;
-            });
-          } else {
-            remoteVideo.pause();
-          }
-        });
-      }
-
-      const roomSnapshot = await getDoc(roomRef);
-
-      if (roomSnapshot.exists()) {
-        guestButton.style.display =
-          roomSnapshot.data().allowGuestPlayback === true
-            ? "block"
-            : "none";
-      }
-
       let fullscreenButton =
         document.getElementById("guestFullscreenButton");
 
@@ -413,12 +372,13 @@ async function startGuestConnection(roomId) {
         fullscreenButton.style.cssText =
           "width:100%;padding:14px;margin-top:10px;border:0;border-radius:10px;background:#343957;color:white;font-size:16px;font-weight:bold;";
 
-        guestButton.insertAdjacentElement(
-          "afterend",
-          fullscreenButton
-        );
+        remoteVideo.insertAdjacentElement(
+  "afterend",
+  fullscreenButton
+);
+   
 
-     fullscreenButton.addEventListener("click", async () => {
+fullscreenButton.addEventListener("click", async () => {
           try {
             if (remoteVideo.requestFullscreen) {
               await remoteVideo.requestFullscreen();
@@ -436,49 +396,58 @@ async function startGuestConnection(roomId) {
       }
 
       remoteVideo.onplay = async () => {
-        guestButton.textContent = "⏸ Pausar";
+  if (applyingRemotePlayback) return;
 
-        if (applyingRemotePlayback) return;
+  const snapshot = await getDoc(roomRef);
 
-        const snapshot = await getDoc(roomRef);
+  if (!snapshot.exists()) return;
 
-        if (
-          !snapshot.exists() ||
-          snapshot.data().allowGuestPlayback !== true
-        ) {
-          applyingRemotePlayback = true;
-          remoteVideo.pause();
-          applyingRemotePlayback = false;
-          return;
-        }
+  const data = snapshot.data();
 
-        await updateDoc(roomRef, {
-          playbackState: "playing",
-          playbackBy: currentUser.uid,
-          playbackAt: Date.now()
-        });
-      };
+  if (data.allowGuestPlayback !== true) {
+    if (data.playbackState !== "playing") {
+      applyingRemotePlayback = true;
+      remoteVideo.pause();
+      applyingRemotePlayback = false;
+    }
+    return;
+  }
 
-      remoteVideo.onpause = async () => {
-        guestButton.textContent = "▶ Reproducir";
+  await updateDoc(roomRef, {
+    playbackState: "playing",
+    playbackBy: currentUser.uid,
+    playbackAt: Date.now()
+  });
+};
 
-        if (applyingRemotePlayback) return;
+remoteVideo.onpause = async () => {
+  if (applyingRemotePlayback) return;
 
-        const snapshot = await getDoc(roomRef);
+  const snapshot = await getDoc(roomRef);
 
-        if (
-          !snapshot.exists() ||
-          snapshot.data().allowGuestPlayback !== true
-        ) {
-          return;
-        }
+  if (!snapshot.exists()) return;
 
-        await updateDoc(roomRef, {
-          playbackState: "paused",
-          playbackBy: currentUser.uid,
-          playbackAt: Date.now()
-        });
-      };
+  const data = snapshot.data();
+
+  if (data.allowGuestPlayback !== true) {
+    if (data.playbackState === "playing") {
+      applyingRemotePlayback = true;
+
+      try {
+        await remoteVideo.play().catch(() => {});
+      } finally {
+        applyingRemotePlayback = false;
+      }
+    }
+    return;
+  }
+
+  await updateDoc(roomRef, {
+    playbackState: "paused",
+    playbackBy: currentUser.uid,
+    playbackAt: Date.now()
+  });
+};
 
       aviso.textContent = "Película cargada. Esperando al anfitrión...";
     };
@@ -501,14 +470,6 @@ async function startGuestConnection(roomId) {
       roomRef,
       async snapshot => {
         const data = snapshot.data();
-
-        const guestButton =
-          document.getElementById("guestPlaybackButton");
-
-        if (guestButton && data) {
-          guestButton.style.display =
-            data.allowGuestPlayback === true ? "block" : "none";
-        }
 
         if (
           data &&
@@ -709,7 +670,7 @@ const roomRef = doc(db, "rooms", roomId);
         guestUid: null,
         movieName: file.name,
         status: "waiting",
-        allowGuestPlayback: false,
+        allowGuestPlayback: true,
         createdAt: serverTimestamp()
       });
 
