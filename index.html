@@ -333,8 +333,14 @@ async function startHostConnection(roomId) {
     const stream = preview.captureStream();
 
     stream.getTracks().forEach(track => {
-      peerConnection.addTrack(track, stream);
-    });
+  peerConnection.addTrack(track, stream);
+});
+
+alert(
+  "Pistas enviadas:\n" +
+  "Vídeo: " + stream.getVideoTracks().length + "\n" +
+  "Audio: " + stream.getAudioTracks().length
+);
 
     peerConnection.onicecandidate = async event => {
       if (event.candidate) {
