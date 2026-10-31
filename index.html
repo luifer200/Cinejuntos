@@ -408,7 +408,7 @@ function showRoomPanel(roomId) {
       </p>
     `;
 
-if (currentRole === "host") {
+   if (currentRole === "host") {
       const startButton = document.createElement("button");
 
       startButton.textContent = "▶ Iniciar transmisión";
@@ -580,6 +580,8 @@ const roomRef = doc(db, "rooms", roomId);
       aviso.textContent = "¡Conectado a la sala!";
 
       showRoomPanel(code);
+await startGuestConnection(code);
+
     } catch (error) {
       joinStatus.textContent = "Error: " + error.message;
     } finally {
