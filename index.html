@@ -110,12 +110,7 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
 
  <div id="roomInfo">
   <p>Tu código de sala:</p>
-  <h2
-  id="roomCode"
-  style="text-align:center;color:#b69aff;letter-spacing:5px;cursor:pointer"
-  title="Toca para copiar el código"
-  onclick="navigator.clipboard.writeText(this.textContent).then(() => alert('¡Código copiado!'))"
-></h2>
+  <h2 id="roomCode" style="text-align:center;color:#b69aff;letter-spacing:5px;cursor:pointer"></h2>
   <p class="small">Esta es una demostración visual. La conexión entre celulares todavía no está implementada.</p>
  </div>
 </section>
@@ -824,7 +819,17 @@ const roomRef = doc(db, "rooms", roomId);
 
       currentRole = "host";
 
-      document.getElementById("roomCode").textContent = room.id;
+      const roomCodeElement = document.getElementById("roomCode");
+
+roomCodeElement.textContent = room.id;
+roomCodeElement.onclick = async () => {
+  try {
+    await navigator.clipboard.writeText(room.id);
+    aviso.textContent = "¡Código copiado correctamente!";
+  } catch (error) {
+    aviso.textContent = "No se pudo copiar el código.";
+  }
+};
       roomInfo.style.display = "block";
 
       const oldMessage = roomInfo.querySelector(".small");
