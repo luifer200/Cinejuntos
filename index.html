@@ -336,12 +336,6 @@ async function startHostConnection(roomId) {
   peerConnection.addTrack(track, stream);
 });
 
-alert(
-  "Pistas enviadas:\n" +
-  "Vídeo: " + stream.getVideoTracks().length + "\n" +
-  "Audio: " + stream.getAudioTracks().length
-);
-
     peerConnection.onicecandidate = async event => {
       if (event.candidate) {
         await addDoc(
@@ -465,11 +459,9 @@ async function startGuestConnection(roomId) {
     peerConnection.ontrack = async event => {
       remoteVideo.srcObject = event.streams[0];
 
-alert(
-  "Pistas recibidas:\n" +
-  "Vídeo: " + event.streams[0].getVideoTracks().length + "\n" +
-  "Audio: " + event.streams[0].getAudioTracks().length
-);
+remoteVideo.muted = false;
+remoteVideo.volume = 1;
+
       remoteVideo.autoplay = false;
       remoteVideo.controls = false;
       remoteVideo.pause();
