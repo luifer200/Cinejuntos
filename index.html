@@ -220,7 +220,165 @@ const rtcConfiguration = {
     preview.load();
 });
 
-  function showRoomPanel(roomId) {
+async function startHostConnection(roomId) {
+  const preview = document.getElementById("preview");
+
+  if (!preview.captureStream) {
+    aviso.textContent = "Tu navegador no permite transmitir este vídeo.";
+    return;
+  }
+
+  if (preview.paused) {
+    aviso.textContent = "Primero reproduce la película.";
+    return;
+  }
+
+  try {
+    peerConnection = new RTCPeerConnection(rtcConfiguration);
+
+    const stream = preview.captureStream();
+
+    stream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, stream);
+    });
+
+    peerConnection.onicecandidate = async event => {
+      if (event.candidate) {
+        await addDoc(
+          collection(db, "rooms", roomId, "offerCandidates"),
+          event.candidate.toJSON()
+        );
+      }
+    };
+
+    peerConnection.onconnectionstatechange = () => {
+      aviso.textContent =
+        "Conexión: " + peerConnection.connectionState;
+    };
+
+    const roomRef = doc(db, "rooms", roomId);
+
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+
+    await updateDoc(roomRef, {
+      offer: {
+        type: offer.type,
+        sdp: offer.sdp
+      }
+    });
+
+    unsubscribeConnectionRoom = onSnapshot(roomRef, async snapshot => {
+      const data = snapshot.data();
+
+      if (data && data.answer && !peerConnection.currentRemoteDescription) {
+        await peerConnection.setRemoteDescription(
+          new RTCSessionDescription(data.answer)
+        );
+
+        unsubscribeAnswerCandidates = onSnapshot(
+          collection(db, "rooms", roomId, "answerCandidates"),
+          async candidateSnapshot => {
+            for (const change of candidateSnapshot.docChanges()) {
+              if (change.type === "added") {
+                try {
+                  await peerConnection.addIceCandidate(
+                    new RTCIceCandidate(change.doc.data())
+                  );
+                } catch (error) {
+                  console.error("Error ICE:", error);
+                }
+              }
+            }
+          }
+        );
+      }
+    });
+
+    aviso.textContent = "Esperando conexión del invitado...";
+  } catch (error) {
+    aviso.textContent = "Error al iniciar transmisión: " + error.message;
+  }
+}
+
+async function startGuestConnection(roomId) {
+  try {
+    peerConnection = new RTCPeerConnection(rtcConfiguration);
+
+    const remoteVideo = document.getElementById("remoteVideo");
+
+    peerConnection.ontrack = event => {
+      remoteVideo.srcObject = event.streams[0];
+      remoteVideo.style.display = "block";
+      remoteVideo.play().catch(() => {
+        aviso.textContent = "Pulsa reproducir en el vídeo recibido.";
+      });
+    };
+
+    peerConnection.onicecandidate = async event => {
+      if (event.candidate) {
+        await addDoc(
+          collection(db, "rooms", roomId, "answerCandidates"),
+          event.candidate.toJSON()
+        );
+      }
+    };
+
+    peerConnection.onconnectionstatechange = () => {
+      aviso.textContent =
+        "Conexión: " + peerConnection.connectionState;
+    };
+
+    const roomRef = doc(db, "rooms", roomId);
+
+    unsubscribeConnectionRoom = onSnapshot(roomRef, async snapshot => {
+      const data = snapshot.data();
+
+      if (
+        data &&
+        data.offer &&
+        !peerConnection.currentRemoteDescription
+      ) {
+        await peerConnection.setRemoteDescription(
+          new RTCSessionDescription(data.offer)
+        );
+
+        unsubscribeOfferCandidates = onSnapshot(
+          collection(db, "rooms", roomId, "offerCandidates"),
+          async candidateSnapshot => {
+            for (const change of candidateSnapshot.docChanges()) {
+              if (change.type === "added") {
+                try {
+                  await peerConnection.addIceCandidate(
+                    new RTCIceCandidate(change.doc.data())
+                  );
+                } catch (error) {
+                  console.error("Error ICE:", error);
+                }
+              }
+            }
+          }
+        );
+
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+
+        await updateDoc(roomRef, {
+          answer: {
+            type: answer.type,
+            sdp: answer.sdp
+          }
+        });
+
+        aviso.textContent = "Conectando con el anfitrión...";
+      }
+    });
+  } catch (error) {
+    aviso.textContent = "Error al recibir transmisión: " + error.message;
+  }
+}  
+
+function showRoomPanel(roomId) {
     if (unsubscribeRoom) unsubscribeRoom();
 
     let panel = document.getElementById("roomPanel");
