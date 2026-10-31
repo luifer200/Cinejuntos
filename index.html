@@ -82,9 +82,7 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
 
 <video
   id="remoteVideo"
-  autoplay
   playsinline
-  controls
   style="display:none;width:100%;margin-top:15px;border-radius:12px;background:#000;">
 </video>
 
@@ -222,6 +220,7 @@ const rtcConfiguration = {
     preview.load();
 });
 
+
 async function startHostConnection(roomId) {
   const preview = document.getElementById("preview");
 
@@ -230,7 +229,7 @@ async function startHostConnection(roomId) {
     return;
   }
 
-    try {
+  try {
     peerConnection = new RTCPeerConnection(rtcConfiguration);
 
     const stream = preview.captureStream();
@@ -255,6 +254,26 @@ async function startHostConnection(roomId) {
 
     const roomRef = doc(db, "rooms", roomId);
 
+    preview.onplay = async () => {
+      if (applyingRemotePlayback) return;
+
+      await updateDoc(roomRef, {
+        playbackState: "playing",
+        playbackBy: currentUser.uid,
+        playbackAt: Date.now()
+      });
+    };
+
+    preview.onpause = async () => {
+      if (applyingRemotePlayback) return;
+
+      await updateDoc(roomRef, {
+        playbackState: "paused",
+        playbackBy: currentUser.uid,
+        playbackAt: Date.now()
+      });
+    };
+
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
 
@@ -265,51 +284,168 @@ async function startHostConnection(roomId) {
       }
     });
 
-    unsubscribeConnectionRoom = onSnapshot(roomRef, async snapshot => {
-      const data = snapshot.data();
+    unsubscribeConnectionRoom = onSnapshot(
+      roomRef,
+      async snapshot => {
+        const data = snapshot.data();
 
-      if (data && data.answer && !peerConnection.currentRemoteDescription) {
-        await peerConnection.setRemoteDescription(
-          new RTCSessionDescription(data.answer)
-        );
+        if (
+          data &&
+          data.playbackAt &&
+          data.playbackAt !== lastPlaybackAt &&
+          data.playbackBy === data.guestUid &&
+          data.allowGuestPlayback === true
+        ) {
+          lastPlaybackAt = data.playbackAt;
+          applyingRemotePlayback = true;
 
-        unsubscribeAnswerCandidates = onSnapshot(
-          collection(db, "rooms", roomId, "answerCandidates"),
-          async candidateSnapshot => {
-            for (const change of candidateSnapshot.docChanges()) {
-              if (change.type === "added") {
-                try {
-                  await peerConnection.addIceCandidate(
-                    new RTCIceCandidate(change.doc.data())
-                  );
-                } catch (error) {
-                  console.error("Error ICE:", error);
+          try {
+            if (data.playbackState === "playing") {
+              await preview.play().catch(() => {});
+            } else if (data.playbackState === "paused") {
+              preview.pause();
+            }
+          } finally {
+            applyingRemotePlayback = false;
+          }
+        }
+
+        if (
+          data &&
+          data.answer &&
+          !peerConnection.currentRemoteDescription
+        ) {
+          await peerConnection.setRemoteDescription(
+            new RTCSessionDescription(data.answer)
+          );
+
+          unsubscribeAnswerCandidates = onSnapshot(
+            collection(db, "rooms", roomId, "answerCandidates"),
+            async candidateSnapshot => {
+              for (const change of candidateSnapshot.docChanges()) {
+                if (change.type === "added") {
+                  try {
+                    await peerConnection.addIceCandidate(
+                      new RTCIceCandidate(change.doc.data())
+                    );
+                  } catch (error) {
+                    console.error("Error ICE:", error);
+                  }
                 }
               }
             }
-          }
-        );
+          );
+        }
       }
-    });
+    );
 
     aviso.textContent = "Esperando conexión del invitado...";
   } catch (error) {
-    aviso.textContent = "Error al iniciar transmisión: " + error.message;
+    aviso.textContent =
+      "Error al iniciar transmisión: " + error.message;
   }
 }
+
 
 async function startGuestConnection(roomId) {
   try {
     peerConnection = new RTCPeerConnection(rtcConfiguration);
 
     const remoteVideo = document.getElementById("remoteVideo");
+    const roomRef = doc(db, "rooms", roomId);
 
-      peerConnection.ontrack = event 
-=> {
+    peerConnection.ontrack = async event => {
       remoteVideo.srcObject = event.streams[0];
       remoteVideo.autoplay = false;
+      remoteVideo.controls = false;
       remoteVideo.pause();
       remoteVideo.style.display = "block";
+
+      let guestButton = document.getElementById("guestPlaybackButton");
+
+      if (!guestButton) {
+        guestButton = document.createElement("button");
+        guestButton.id = "guestPlaybackButton";
+        guestButton.textContent = "▶ Reproducir";
+        guestButton.style.cssText =
+          "width:100%;padding:14px;margin-top:12px;border:0;border-radius:10px;background:#8b5cf6;color:white;font-size:16px;font-weight:bold;";
+
+        remoteVideo.insertAdjacentElement("afterend", guestButton);
+
+        guestButton.addEventListener("click", async () => {
+          const roomSnapshot = await getDoc(roomRef);
+
+          if (
+            !roomSnapshot.exists() ||
+            roomSnapshot.data().allowGuestPlayback !== true
+          ) {
+            aviso.textContent = "El anfitrión no ha permitido controlar la película.";
+            return;
+          }
+
+          if (remoteVideo.paused) {
+            await remoteVideo.play().catch(error => {
+              aviso.textContent = "No se pudo reproducir: " + error.message;
+            });
+          } else {
+            remoteVideo.pause();
+          }
+        });
+      }
+
+      const roomSnapshot = await getDoc(roomRef);
+
+      if (roomSnapshot.exists()) {
+        guestButton.style.display =
+          roomSnapshot.data().allowGuestPlayback === true
+            ? "block"
+            : "none";
+      }
+
+      remoteVideo.onplay = async () => {
+        guestButton.textContent = "⏸ Pausar";
+
+        if (applyingRemotePlayback) return;
+
+        const snapshot = await getDoc(roomRef);
+
+        if (
+          !snapshot.exists() ||
+          snapshot.data().allowGuestPlayback !== true
+        ) {
+          applyingRemotePlayback = true;
+          remoteVideo.pause();
+          applyingRemotePlayback = false;
+          return;
+        }
+
+        await updateDoc(roomRef, {
+          playbackState: "playing",
+          playbackBy: currentUser.uid,
+          playbackAt: Date.now()
+        });
+      };
+
+      remoteVideo.onpause = async () => {
+        guestButton.textContent = "▶ Reproducir";
+
+        if (applyingRemotePlayback) return;
+
+        const snapshot = await getDoc(roomRef);
+
+        if (
+          !snapshot.exists() ||
+          snapshot.data().allowGuestPlayback !== true
+        ) {
+          return;
+        }
+
+        await updateDoc(roomRef, {
+          playbackState: "paused",
+          playbackBy: currentUser.uid,
+          playbackAt: Date.now()
+        });
+      };
 
       aviso.textContent = "Película cargada. Esperando al anfitrión...";
     };
@@ -328,54 +464,88 @@ async function startGuestConnection(roomId) {
         "Conexión: " + peerConnection.connectionState;
     };
 
-    const roomRef = doc(db, "rooms", roomId);
+    unsubscribeConnectionRoom = onSnapshot(
+      roomRef,
+      async snapshot => {
+        const data = snapshot.data();
 
-    unsubscribeConnectionRoom = onSnapshot(roomRef, async snapshot => {
-      const data = snapshot.data();
+        const guestButton =
+          document.getElementById("guestPlaybackButton");
 
-      if (
-        data &&
-        data.offer &&
-        !peerConnection.currentRemoteDescription
-      ) {
-        await peerConnection.setRemoteDescription(
-          new RTCSessionDescription(data.offer)
-        );
+        if (guestButton && data) {
+          guestButton.style.display =
+            data.allowGuestPlayback === true ? "block" : "none";
+        }
 
-        unsubscribeOfferCandidates = onSnapshot(
-          collection(db, "rooms", roomId, "offerCandidates"),
-          async candidateSnapshot => {
-            for (const change of candidateSnapshot.docChanges()) {
-              if (change.type === "added") {
-                try {
-                  await peerConnection.addIceCandidate(
-                    new RTCIceCandidate(change.doc.data())
-                  );
-                } catch (error) {
-                  console.error("Error ICE:", error);
+        if (
+          data &&
+          data.playbackAt &&
+          data.playbackAt !== lastPlaybackAt &&
+          data.playbackBy === data.ownerUid
+        ) {
+          lastPlaybackAt = data.playbackAt;
+          applyingRemotePlayback = true;
+
+          try {
+            if (data.playbackState === "playing") {
+              await remoteVideo.play().catch(() => {
+                aviso.textContent =
+                  "Pulsa reproducir para comenzar la película.";
+              });
+            } else if (data.playbackState === "paused") {
+              remoteVideo.pause();
+            }
+          } finally {
+            applyingRemotePlayback = false;
+          }
+        }
+
+        if (
+          data &&
+          data.offer &&
+          !peerConnection.currentRemoteDescription
+        ) {
+          await peerConnection.setRemoteDescription(
+            new RTCSessionDescription(data.offer)
+          );
+
+          unsubscribeOfferCandidates = onSnapshot(
+            collection(db, "rooms", roomId, "offerCandidates"),
+            async candidateSnapshot => {
+              for (const change of candidateSnapshot.docChanges()) {
+                if (change.type === "added") {
+                  try {
+                    await peerConnection.addIceCandidate(
+                      new RTCIceCandidate(change.doc.data())
+                    );
+                  } catch (error) {
+                    console.error("Error ICE:", error);
+                  }
                 }
               }
             }
-          }
-        );
+          );
 
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
+          const answer = await peerConnection.createAnswer();
+          await peerConnection.setLocalDescription(answer);
 
-        await updateDoc(roomRef, {
-          answer: {
-            type: answer.type,
-            sdp: answer.sdp
-          }
-        });
+          await updateDoc(roomRef, {
+            answer: {
+              type: answer.type,
+              sdp: answer.sdp
+            }
+          });
 
-        aviso.textContent = "Conectando con el anfitrión...";
+          aviso.textContent = "Conectando con el anfitrión...";
+        }
       }
-    });
+    );
+
   } catch (error) {
-    aviso.textContent = "Error al recibir transmisión: " + error.message;
+    aviso.textContent =
+      "Error al recibir transmisión: " + error.message;
   }
-}  
+}
 
 function showRoomPanel(roomId) {
     if (unsubscribeRoom) unsubscribeRoom();
