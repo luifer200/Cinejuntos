@@ -96,15 +96,17 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
   color:white;
 ">
 
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-    <strong>📶 Conexión</strong>
-    <span style="color:#4ade80;font-size:13px;">● Conectados</span>
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <strong>📶 Tu conexión</strong>
+    <strong id="myPing" style="color:#a5a9c4;">Midiendo...</strong>
   </div>
 
-  <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
-    <strong>📱 Tú</strong>
-    <strong id="myPing" style="color:#4ade80;">-- ms</strong>
+  <div style="margin-top:12px;display:flex;justify-content:space-between;">
+    <span style="color:#a5a9c4;font-size:13px;">Calidad de conexión</span>
+    <strong id="pingQuality" style="color:#a5a9c4;">Midiendo...</strong>
   </div>
+
+</div>
 
   <div style="display:flex;justify-content:space-between;margin-bottom:14px;">
     <strong>📱 Tu amigo</strong>
@@ -207,64 +209,11 @@ let unsubscribePingRoom = null;
 function startPingMonitor(roomId, role) {
   if (pingInterval) clearInterval(pingInterval);
 
-  if (unsubscribePingRoom) unsubscribePingRoom();
-
   const panel = document.getElementById("pingPanel");
   const myPing = document.getElementById("myPing");
-  const friendPing = document.getElementById("friendPing");
   const quality = document.getElementById("pingQuality");
 
   panel.style.display = "block";
-
-  const roomRef = doc(db, "rooms", roomId);
-
-  function updateColor(element, value) {
-    if (value === null || value === undefined) {
-      element.textContent = "-- ms";
-      element.style.color = "#a5a9c4";
-    } else {
-      element.textContent = value + " ms";
-      element.style.color =
-        value < 60 ? "#4ade80" :
-        value <= 150 ? "#facc15" :
-        "#f87171";
-    }
-  }
-
-  unsubscribePingRoom = onSnapshot(roomRef, snapshot => {
-    if (!snapshot.exists()) return;
-
-    const data = snapshot.data();
-
-    const mine = role === "host"
-      ? data.pingHost
-      : data.pingGuest;
-
-    const friend = role === "host"
-      ? data.pingGuest
-      : data.pingHost;
-
-    updateColor(myPing, mine);
-    updateColor(friendPing, friend);
-
-    if (mine == null || friend == null) {
-      quality.textContent = "Midiendo...";
-      quality.style.color = "#a5a9c4";
-      return;
-    }
-
-    const worst = Math.max(mine, friend);
-
-    quality.textContent =
-      worst < 60 ? "Excelente" :
-      worst <= 150 ? "Regular" :
-      "Lenta";
-
-    quality.style.color =
-      worst < 60 ? "#4ade80" :
-      worst <= 150 ? "#facc15" :
-      "#f87171";
-  });
 
   async function measurePing() {
     if (!peerConnection) return;
@@ -272,13 +221,26 @@ function startPingMonitor(roomId, role) {
     try {
       const stats = await peerConnection.getStats();
 
+      let selectedPairId = null;
+
+      stats.forEach(report => {
+        if (
+          report.type === "transport" &&
+          report.selectedCandidatePairId
+        ) {
+          selectedPairId = report.selectedCandidatePairId;
+        }
+      });
+
       let ping = null;
 
       stats.forEach(report => {
         if (
           report.type === "candidate-pair" &&
-          report.state === "succeeded" &&
-          report.selected === true &&
+          (
+            report.id === selectedPairId ||
+            report.selected === true
+          ) &&
           report.currentRoundTripTime !== undefined
         ) {
           ping = Math.round(
@@ -287,18 +249,34 @@ function startPingMonitor(roomId, role) {
         }
       });
 
-      if (ping !== null) {
-        await updateDoc(roomRef, {
-          [role === "host" ? "pingHost" : "pingGuest"]: ping
-        });
+      if (ping === null) {
+        myPing.textContent = "-- ms";
+        quality.textContent = "Midiendo...";
+        return;
       }
+
+      myPing.textContent = ping + " ms";
+
+      const color =
+        ping < 60 ? "#4ade80" :
+        ping <= 150 ? "#facc15" :
+        "#f87171";
+
+      myPing.style.color = color;
+      quality.style.color = color;
+
+      quality.textContent =
+        ping < 60 ? "Excelente" :
+        ping <= 150 ? "Regular" :
+        "Lenta";
+
     } catch (error) {
       console.error("Error midiendo ping:", error);
     }
   }
 
   measurePing();
-  pingInterval = setInterval(measurePing, 10000);
+  pingInterval = setInterval(measurePing, 3000);
 }
 
   const aviso = document.createElement("div");
