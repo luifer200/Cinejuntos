@@ -459,12 +459,15 @@ async function startGuestConnection(roomId) {
     peerConnection.ontrack = async event => {
       remoteVideo.srcObject = event.streams[0];
 
-console.log("Pista recibida:", {
-  tipo: event.track.kind,
-  estado: event.track.readyState,
-  silenciada: event.track.muted,
-  habilitada: event.track.enabled
-});
+if (event.track.kind === "audio") {
+  aviso.textContent =
+    "AUDIO RECIBIDO | Estado: " +
+    event.track.readyState +
+    " | Silenciado: " +
+    event.track.muted +
+    " | Habilitado: " +
+    event.track.enabled;
+}
 
 remoteVideo.muted = false;
 remoteVideo.volume = 1;
