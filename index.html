@@ -89,30 +89,18 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
 <footer>CineJuntos · Nuestro cine privado</footer>
 </main>
 
-<script>
-const movie=document.getElementById('movie');
-const fileInfo=document.getElementById('fileInfo');
-
-movie.addEventListener('change',()=>{
- const file=movie.files[0];
- if(!file)return;
- document.getElementById('fileName').textContent=file.name;
- document.getElementById('fileSize').textContent=
- (file.size/1024/1024/1024).toFixed(2)+' GB';
- fileInfo.style.display='block';
- document.getElementById('roomInfo').style.display='none';
-});
-
-document.getElementById('create').addEventListener('click',()=>{
- const code=Math.random().toString(36).substring(2,8).toUpperCase();
- document.getElementById('roomCode').textContent=code;
- document.getElementById('roomInfo').style.display='block';
-});
-</script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-  import { getFirestore } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+  import {
+    getAuth,
+    signInAnonymously
+  } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+  import {
+    getFirestore,
+    collection,
+    addDoc,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDDGY0myoFzLpUKzH9lPXZ6K-9UmGEd9qw",
@@ -127,18 +115,73 @@ document.getElementById('create').addEventListener('click',()=>{
   const auth = getAuth(app);
   const db = getFirestore(app);
 
+  const movie = document.getElementById("movie");
+  const createButton = document.getElementById("create");
+  const fileInfo = document.getElementById("fileInfo");
+  const roomInfo = document.getElementById("roomInfo");
+
+  let currentUser = null;
+
   const aviso = document.createElement("div");
+  aviso.style.cssText =
+    "position:fixed;bottom:12px;left:12px;right:12px;padding:12px;background:#252943;color:white;text-align:center;border-radius:12px;z-index:9999;font-size:14px;";
   aviso.textContent = "Conectando con CineJuntos...";
-  aviso.style.cssText = "position:fixed;bottom:12px;left:12px;right:12px;padding:12px;background:#252943;color:white;text-align:center;border-radius:12px;z-index:9999;font-size:14px;";
   document.body.appendChild(aviso);
 
-  signInAnonymously(auth)
-    .then(() => {
-      aviso.textContent = "¡Conectado a CineJuntos!";
-    })
-    .catch((error) => {
-      aviso.textContent = "Error de conexión: " + error.message;
-    });
+  try {
+    const credential = await signInAnonymously(auth);
+    currentUser = credential.user;
+    aviso.textContent = "¡Conectado a CineJuntos!";
+  } catch (error) {
+    aviso.textContent = "Error de conexión: " + error.message;
+  }
+
+  movie.addEventListener("change", () => {
+    const file = movie.files[0];
+    if (!file) return;
+
+    document.getElementById("fileName").textContent = file.name;
+    document.getElementById("fileSize").textContent =
+      (file.size / 1024 / 1024 / 1024).toFixed(2) + " GB";
+
+    fileInfo.style.display = "block";
+    roomInfo.style.display = "none";
+  });
+
+  createButton.addEventListener("click", async () => {
+    if (!currentUser) {
+      aviso.textContent = "No hay conexión con Firebase.";
+      return;
+    }
+
+    const file = movie.files[0];
+    if (!file) {
+      aviso.textContent = "Primero selecciona una película.";
+      return;
+    }
+
+    createButton.disabled = true;
+    createButton.textContent = "Creando sala...";
+
+    try {
+      const room = await addDoc(collection(db, "rooms"), {
+        ownerUid: currentUser.uid,
+        guestUid: null,
+        movieName: file.name,
+        status: "waiting",
+        createdAt: serverTimestamp()
+      });
+
+      document.getElementById("roomCode").textContent = room.id;
+      roomInfo.style.display = "block";
+      aviso.textContent = "¡Tu sala fue creada correctamente!";
+    } catch (error) {
+      aviso.textContent = "Error al crear sala: " + error.message;
+    } finally {
+      createButton.disabled = false;
+      createButton.textContent = "Crear sala";
+    }
+  });
 </script>
 </body>
 </html>
