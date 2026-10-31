@@ -327,10 +327,12 @@ async function startHostConnection(roomId) {
     return;
   }
 
-  try {
-    peerConnection = new RTCPeerConnection(rtcConfiguration);
+    try {
+  await preview.play();
 
- const stream = preview.captureStream();
+  peerConnection = new RTCPeerConnection(rtcConfiguration);
+
+  const stream = preview.captureStream();
 
 stream.getTracks().forEach(track => {
   if (track.kind === "audio") {
