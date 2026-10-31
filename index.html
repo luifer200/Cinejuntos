@@ -460,13 +460,12 @@ async function startGuestConnection(roomId) {
       remoteVideo.srcObject = event.streams[0];
 
 if (event.track.kind === "audio") {
-  aviso.textContent =
-    "AUDIO RECIBIDO | Estado: " +
-    event.track.readyState +
-    " | Silenciado: " +
-    event.track.muted +
-    " | Habilitado: " +
-    event.track.enabled;
+  alert(
+    "AUDIO RECIBIDO\n" +
+    "Estado: " + event.track.readyState + "\n" +
+    "Silenciado: " + event.track.muted + "\n" +
+    "Habilitado: " + event.track.enabled
+  );
 }
 
 remoteVideo.muted = false;
