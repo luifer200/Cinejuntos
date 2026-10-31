@@ -462,6 +462,13 @@ async function startGuestConnection(roomId) {
 remoteVideo.muted = false;
 remoteVideo.volume = 1;
 
+remoteVideo.onclick = () => {
+  remoteVideo.muted = false;
+  remoteVideo.play().catch(error => {
+    console.log("Error al reproducir:", error);
+  });
+};
+
       remoteVideo.autoplay = false;
       remoteVideo.controls = false;
       remoteVideo.pause();
