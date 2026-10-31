@@ -489,20 +489,61 @@ if (event.track.kind === "audio") {
   };
 }
 
-remoteVideo.muted = false;
+remoteVideo.muted = true;
 remoteVideo.volume = 1;
+remoteVideo.autoplay = false;
+remoteVideo.controls = false;
+remoteVideo.style.display = "block";
 
-remoteVideo.onclick = () => {
+const startOverlay = document.createElement("div");
+
+startOverlay.style.cssText = `
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  background: #000;
+  color: white;
+  border-radius: 12px;
+  cursor: pointer;
+  z-index: 5;
+`;
+
+startOverlay.innerHTML = `
+  <div style="font-size:48px;">▶</div>
+  <div style="font-size:18px;font-weight:bold;">
+    Entrar a la transmisión
+  </div>
+  <div style="font-size:13px;color:#bbb;">
+    Toca para ver la película
+  </div>
+`;
+
+const videoContainer = document.createElement("div");
+videoContainer.style.cssText = `
+  position: relative;
+  width: 100%;
+  margin-top: 15px;
+`;
+
+remoteVideo.parentElement.insertBefore(videoContainer, remoteVideo);
+videoContainer.appendChild(remoteVideo);
+videoContainer.appendChild(startOverlay);
+
+startOverlay.addEventListener("click", async () => {
   remoteVideo.muted = false;
-  remoteVideo.play().catch(error => {
-    console.log("Error al reproducir:", error);
-  });
-};
 
-      remoteVideo.autoplay = false;
-      remoteVideo.controls = false;
-      remoteVideo.pause();
-      remoteVideo.style.display = "block";
+  try {
+    await remoteVideo.play();
+    startOverlay.remove();
+  } catch (error) {
+    remoteVideo.muted = true;
+    console.log("Error al iniciar transmisión:", error);
+  }
+});
 
       let fullscreenButton =
         document.getElementById("guestFullscreenButton");
