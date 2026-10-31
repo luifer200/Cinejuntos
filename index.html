@@ -109,5 +109,36 @@ document.getElementById('create').addEventListener('click',()=>{
  document.getElementById('roomInfo').style.display='block';
 });
 </script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+  import { getFirestore } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDDGY0myoFzLpUKzH9lPXZ6K-9UmGEd9qw",
+    authDomain: "cinejuntos-b4065.firebaseapp.com",
+    projectId: "cinejuntos-b4065",
+    storageBucket: "cinejuntos-b4065.firebasestorage.app",
+    messagingSenderId: "427008123156",
+    appId: "1:427008123156:web:9070cb766803afeb2d2201"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  const aviso = document.createElement("div");
+  aviso.textContent = "Conectando con CineJuntos...";
+  aviso.style.cssText = "position:fixed;bottom:12px;left:12px;right:12px;padding:12px;background:#252943;color:white;text-align:center;border-radius:12px;z-index:9999;font-size:14px;";
+  document.body.appendChild(aviso);
+
+  signInAnonymously(auth)
+    .then(() => {
+      aviso.textContent = "¡Conectado a CineJuntos!";
+    })
+    .catch((error) => {
+      aviso.textContent = "Error de conexión: " + error.message;
+    });
+</script>
 </body>
 </html>
