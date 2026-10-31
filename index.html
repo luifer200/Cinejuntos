@@ -103,7 +103,10 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+  import {
+    getAuth,
+    signInAnonymously
+  } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
   import {
     getFirestore,
     collection,
@@ -111,6 +114,7 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
     doc,
     getDoc,
     updateDoc,
+    onSnapshot,
     serverTimestamp
   } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
@@ -136,6 +140,8 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
   const joinStatus = document.getElementById("joinStatus");
 
   let currentUser = null;
+  let currentRole = null;
+  let unsubscribeRoom = null;
 
   const aviso = document.createElement("div");
   aviso.style.cssText =
@@ -163,6 +169,94 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
     roomInfo.style.display = "none";
   });
 
+  function showRoomPanel(roomId) {
+    if (unsubscribeRoom) unsubscribeRoom();
+
+    let panel = document.getElementById("roomPanel");
+
+    if (!panel) {
+      panel = document.createElement("div");
+      panel.id = "roomPanel";
+      panel.style.cssText =
+        "margin-top:20px;padding:18px;background:#191d30;border:1px solid #555078;border-radius:14px;";
+
+      roomInfo.parentElement.appendChild(panel);
+    }
+
+    panel.innerHTML = `
+      <h2 style="text-align:center;color:#b69aff">🎬 Sala CineJuntos</h2>
+      <p id="hostState">Anfitrión: sala creada</p>
+      <p id="guestState">Invitado: esperando conexión...</p>
+      <div id="hostPermission" style="margin-top:20px;padding:12px;background:#252943;border-radius:12px;">
+        <label style="display:flex;align-items:center;gap:10px;">
+          <input id="guestPermission" type="checkbox" style="width:20px;height:20px;display:inline-block;">
+          <strong>Permitir al invitado pausar y reproducir</strong>
+        </label>
+      </div>
+      <p id="guestPermissionInfo" style="display:none;color:#c8b8ff;margin-top:15px;"></p>
+      <p class="small" style="margin-top:18px;">
+        La sala está conectada. La transmisión de la película todavía está pendiente.
+      </p>
+    `;
+
+    const roomRef = doc(db, "rooms", roomId);
+
+    unsubscribeRoom = onSnapshot(roomRef, (snapshot) => {
+      if (!snapshot.exists()) {
+        aviso.textContent = "La sala ya no existe.";
+        return;
+      }
+
+      const data = snapshot.data();
+
+      const hostState = document.getElementById("hostState");
+      const guestState = document.getElementById("guestState");
+      const permissionBox = document.getElementById("hostPermission");
+      const permissionInfo = document.getElementById("guestPermissionInfo");
+      const permissionCheck = document.getElementById("guestPermission");
+
+      hostState.textContent = "Anfitrión: sala creada";
+      guestState.textContent = data.guestUid
+        ? "Invitado: conectado a la sala"
+        : "Invitado: esperando conexión...";
+
+      if (currentRole === "host") {
+        permissionBox.style.display = "block";
+        permissionInfo.style.display = "none";
+        permissionCheck.checked = data.allowGuestPlayback === true;
+      } else {
+        permissionBox.style.display = "none";
+        permissionInfo.style.display = "block";
+        permissionInfo.textContent = data.allowGuestPlayback
+          ? "El anfitrión te permite pausar y reproducir."
+          : "El anfitrión no ha permitido pausar ni reproducir.";
+      }
+    }, (error) => {
+      aviso.textContent = "Error actualizando la sala: " + error.message;
+    });
+
+    const permissionCheck = document.getElementById("guestPermission");
+
+    permissionCheck.addEventListener("change", async () => {
+      if (currentRole !== "host") return;
+
+      permissionCheck.disabled = true;
+
+      try {
+        await updateDoc(roomRef, {
+          allowGuestPlayback: permissionCheck.checked
+        });
+        aviso.textContent = permissionCheck.checked
+          ? "Permiso del invitado activado."
+          : "Permiso del invitado desactivado.";
+      } catch (error) {
+        aviso.textContent = "Error guardando permiso: " + error.message;
+      } finally {
+        permissionCheck.disabled = false;
+      }
+    });
+  }
+
   createButton.addEventListener("click", async () => {
     if (!currentUser) {
       aviso.textContent = "No hay conexión con Firebase.";
@@ -170,6 +264,7 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
     }
 
     const file = movie.files[0];
+
     if (!file) {
       aviso.textContent = "Primero selecciona una película.";
       return;
@@ -184,11 +279,21 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
         guestUid: null,
         movieName: file.name,
         status: "waiting",
+        allowGuestPlayback: false,
         createdAt: serverTimestamp()
       });
 
+      currentRole = "host";
+
       document.getElementById("roomCode").textContent = room.id;
       roomInfo.style.display = "block";
+
+      const oldMessage = roomInfo.querySelector(".small");
+      if (oldMessage) {
+        oldMessage.textContent = "Comparte este código con tu invitado.";
+      }
+
+      showRoomPanel(room.id);
       aviso.textContent = "¡Tu sala fue creada correctamente!";
     } catch (error) {
       aviso.textContent = "Error al crear sala: " + error.message;
@@ -224,28 +329,29 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
         return;
       }
 
-      const roomData = roomSnap.data();
+      const data = roomSnap.data();
 
-      if (roomData.ownerUid === currentUser.uid) {
+      if (data.ownerUid === currentUser.uid) {
         joinStatus.textContent = "¡Esta es tu propia sala!";
         return;
       }
 
-      if (roomData.guestUid && roomData.guestUid !== currentUser.uid) {
+      if (data.guestUid && data.guestUid !== currentUser.uid) {
         joinStatus.textContent = "Esta sala ya tiene un invitado.";
         return;
       }
 
-      if (!roomData.guestUid) {
+      if (!data.guestUid) {
         await updateDoc(roomRef, {
           guestUid: currentUser.uid
         });
       }
 
-      joinStatus.textContent =
-        "¡Te uniste a la sala! Película: " + roomData.movieName;
-
+      currentRole = "guest";
+      joinStatus.textContent = "¡Te uniste a la sala!";
       aviso.textContent = "¡Conectado a la sala!";
+
+      showRoomPanel(code);
     } catch (error) {
       joinStatus.textContent = "Error: " + error.message;
     } finally {
