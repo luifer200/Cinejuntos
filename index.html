@@ -464,6 +464,12 @@ async function startGuestConnection(roomId) {
 
     peerConnection.ontrack = async event => {
       remoteVideo.srcObject = event.streams[0];
+
+alert(
+  "Pistas recibidas:\n" +
+  "Vídeo: " + event.streams[0].getVideoTracks().length + "\n" +
+  "Audio: " + event.streams[0].getAudioTracks().length
+);
       remoteVideo.autoplay = false;
       remoteVideo.controls = false;
       remoteVideo.pause();
