@@ -379,14 +379,9 @@ async function startHostConnection(roomId) {
       }
     };
 
-    peerConnection.onconnectionstatechange = () => {
+peerConnection.onconnectionstatechange = () => {
   aviso.textContent =
     "Conexión: " + peerConnection.connectionState;
-
-  if (peerConnection.connectionState === "connected") {
-    startPingMonitor(roomId, "guest");
-  }
-};
 
   if (peerConnection.connectionState === "connected") {
     startPingMonitor(roomId, "host");
@@ -603,9 +598,13 @@ remoteVideo.onpause = async () => {
     };
 
     peerConnection.onconnectionstatechange = () => {
-      aviso.textContent =
-        "Conexión: " + peerConnection.connectionState;
-    };
+  aviso.textContent =
+    "Conexión: " + peerConnection.connectionState;
+
+  if (peerConnection.connectionState === "connected") {
+    startPingMonitor(roomId, "guest");
+  }
+};
 
     unsubscribeConnectionRoom = onSnapshot(
       roomRef,
