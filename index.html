@@ -82,8 +82,20 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
 
 <section class="card">
  <h2>🤝 Unirse a una sala</h2>
- <p>Próximamente podrás introducir el código que te envíe tu amigo.</p>
- <p class="small">Estamos construyendo la conexión sincronizada.</p>
+ <p>Introduce el código que te haya enviado tu amigo.</p>
+
+ <input
+  id="joinCode"
+  type="text"
+  placeholder="Código de la sala"
+  maxlength="20"
+  autocomplete="off"
+  style="display:block;width:100%;padding:15px;border-radius:12px;border:1px solid #555078;background:#191d30;color:white;font-size:16px;"
+ >
+
+ <button id="join">Unirse a la sala</button>
+
+ <p id="joinStatus" class="small"></p>
 </section>
 
 <footer>CineJuntos · Nuestro cine privado</footer>
@@ -91,14 +103,14 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-  import {
-    getAuth,
-    signInAnonymously
-  } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
   import {
     getFirestore,
     collection,
     addDoc,
+    doc,
+    getDoc,
+    updateDoc,
     serverTimestamp
   } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
@@ -119,6 +131,9 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
   const createButton = document.getElementById("create");
   const fileInfo = document.getElementById("fileInfo");
   const roomInfo = document.getElementById("roomInfo");
+  const joinButton = document.getElementById("join");
+  const joinCode = document.getElementById("joinCode");
+  const joinStatus = document.getElementById("joinStatus");
 
   let currentUser = null;
 
@@ -180,6 +195,62 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
     } finally {
       createButton.disabled = false;
       createButton.textContent = "Crear sala";
+    }
+  });
+
+  joinButton.addEventListener("click", async () => {
+    if (!currentUser) {
+      joinStatus.textContent = "No hay conexión con Firebase.";
+      return;
+    }
+
+    const code = joinCode.value.trim();
+
+    if (!code) {
+      joinStatus.textContent = "Escribe el código de la sala.";
+      return;
+    }
+
+    joinButton.disabled = true;
+    joinButton.textContent = "Buscando sala...";
+    joinStatus.textContent = "";
+
+    try {
+      const roomRef = doc(db, "rooms", code);
+      const roomSnap = await getDoc(roomRef);
+
+      if (!roomSnap.exists()) {
+        joinStatus.textContent = "No encontramos esa sala. Revisa el código.";
+        return;
+      }
+
+      const roomData = roomSnap.data();
+
+      if (roomData.ownerUid === currentUser.uid) {
+        joinStatus.textContent = "¡Esta es tu propia sala!";
+        return;
+      }
+
+      if (roomData.guestUid && roomData.guestUid !== currentUser.uid) {
+        joinStatus.textContent = "Esta sala ya tiene un invitado.";
+        return;
+      }
+
+      if (!roomData.guestUid) {
+        await updateDoc(roomRef, {
+          guestUid: currentUser.uid
+        });
+      }
+
+      joinStatus.textContent =
+        "¡Te uniste a la sala! Película: " + roomData.movieName;
+
+      aviso.textContent = "¡Conectado a la sala!";
+    } catch (error) {
+      joinStatus.textContent = "Error: " + error.message;
+    } finally {
+      joinButton.disabled = false;
+      joinButton.textContent = "Unirse a la sala";
     }
   });
 </script>
