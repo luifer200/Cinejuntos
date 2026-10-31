@@ -402,6 +402,39 @@ async function startGuestConnection(roomId) {
             : "none";
       }
 
+      let fullscreenButton =
+        document.getElementById("guestFullscreenButton");
+
+      if (!fullscreenButton) {
+        fullscreenButton = document.createElement("button");
+
+        fullscreenButton.id = "guestFullscreenButton";
+        fullscreenButton.textContent = "⛶ Pantalla completa";
+        fullscreenButton.style.cssText =
+          "width:100%;padding:14px;margin-top:10px;border:0;border-radius:10px;background:#343957;color:white;font-size:16px;font-weight:bold;";
+
+        guestButton.insertAdjacentElement(
+          "afterend",
+          fullscreenButton
+        );
+
+     fullscreenButton.addEventListener("click", async () => {
+          try {
+            if (remoteVideo.requestFullscreen) {
+              await remoteVideo.requestFullscreen();
+            } else if (remoteVideo.webkitEnterFullscreen) {
+              remoteVideo.webkitEnterFullscreen();
+            } else {
+              aviso.textContent =
+                "Tu navegador no permite pantalla completa.";
+            }
+          } catch (error) {
+            aviso.textContent =
+              "No se pudo activar pantalla completa.";
+          }
+        });
+      }
+
       remoteVideo.onplay = async () => {
         guestButton.textContent = "⏸ Pausar";
 
