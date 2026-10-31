@@ -330,9 +330,18 @@ async function startHostConnection(roomId) {
   try {
     peerConnection = new RTCPeerConnection(rtcConfiguration);
 
-    const stream = preview.captureStream();
+ const stream = preview.captureStream();
 
-    stream.getTracks().forEach(track => {
+stream.getTracks().forEach(track => {
+  if (track.kind === "audio") {
+    alert(
+      "AUDIO DEL ANFITRIÓN\n" +
+      "Estado: " + track.readyState + "\n" +
+      "Silenciado: " + track.muted + "\n" +
+      "Habilitado: " + track.enabled
+    );
+  }
+
   peerConnection.addTrack(track, stream);
 });
 
