@@ -176,6 +176,26 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
     roomInfo.style.display = "none";
 
     const preview = document.getElementById("preview");
+
+    preview.addEventListener("playing", () => {
+        try {
+            if (!preview.captureStream) {
+                alert("Este navegador no permite capturar el reproductor.");
+                return;
+            }
+
+            const stream = preview.captureStream();
+
+            alert(
+                "Prueba de captura:\n" +
+                "Vídeo: " + stream.getVideoTracks().length + "\n" +
+                "Audio: " + stream.getAudioTracks().length
+            );
+        } catch (error) {
+            alert("Error al capturar: " + error.message);
+        }
+    }, { once: true });
+
     preview.src = URL.createObjectURL(file);
     preview.style.display = "block";
     preview.load();
