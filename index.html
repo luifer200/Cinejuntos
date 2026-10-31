@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CineJuntos</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;background:#090b13;color:white;
+ font-family:Arial,sans-serif;
+ min-height:100vh;padding:25px 16px;
+}
+main{max-width:650px;margin:auto}
+header{text-align:center;padding:35px 0}
+.logo{font-size:42px}
+h1{font-size:32px;margin:10px 0}
+h1 span{color:#9b75ff}
+p{color:#a9adbd;line-height:1.6}
+.card{
+ background:#141827;border:1px solid #292f43;
+ border-radius:18px;padding:22px;margin:18px 0;
+}
+h2{font-size:19px;margin-top:0}
+.upload{
+ border:2px dashed #555078;border-radius:14px;
+ padding:35px 15px;text-align:center;
+ background:#191d30;cursor:pointer;
+}
+.upload strong{display:block;margin:10px}
+button{
+ width:100%;padding:15px;border:0;border-radius:12px;
+ background:#8057ee;color:white;font-size:16px;
+ font-weight:bold;margin-top:15px;cursor:pointer;
+}
+button:disabled{opacity:.5}
+input[type=file]{display:none}
+#fileInfo,#roomInfo{display:none;margin-top:18px}
+#fileName{overflow-wrap:anywhere;color:#c8b8ff}
+.small{font-size:12px;color:#858ca2}
+footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
+</style>
+</head>
+<body>
+<main>
+<header>
+ <div class="logo">🎬</div>
+ <h1>Cine<span>Juntos</span></h1>
+ <p>Dos celulares. Una película. Una misma experiencia.</p>
+</header>
+
+<section class="card">
+ <h2>🍿 Crear una sala</h2>
+ <p>Selecciona una película de tu celular para comenzar.</p>
+ <label class="upload" for="movie">
+  <div style="font-size:35px">📁</div>
+  <strong>Seleccionar película</strong>
+  <span class="small">Formatos MP4 y MKV · Más de 1 GB permitido</span>
+ </label>
+ <input id="movie" type="file" accept=".mp4,.mkv,video/mp4,video/x-matroska">
+
+ <div id="fileInfo">
+  <p>Película seleccionada:</p>
+  <strong id="fileName"></strong>
+  <p id="fileSize"></p>
+  <button id="create">Crear sala</button>
+ </div>
+
+ <div id="roomInfo">
+  <p>Tu código de sala:</p>
+  <h2 id="roomCode" style="text-align:center;color:#b69aff;letter-spacing:5px"></h2>
+  <p class="small">Esta es una demostración visual. La conexión entre celulares todavía no está implementada.</p>
+ </div>
+</section>
+
+<section class="card">
+ <h2>🤝 Unirse a una sala</h2>
+ <p>Próximamente podrás introducir el código que te envíe tu amigo.</p>
+ <p class="small">Estamos construyendo la conexión sincronizada.</p>
+</section>
+
+<footer>CineJuntos · Nuestro cine privado</footer>
+</main>
+
+<script>
+const movie=document.getElementById('movie');
+const fileInfo=document.getElementById('fileInfo');
+
+movie.addEventListener('change',()=>{
+ const file=movie.files[0];
+ if(!file)return;
+ document.getElementById('fileName').textContent=file.name;
+ document.getElementById('fileSize').textContent=
+ (file.size/1024/1024/1024).toFixed(2)+' GB';
+ fileInfo.style.display='block';
+ document.getElementById('roomInfo').style.display='none';
+});
+
+document.getElementById('create').addEventListener('click',()=>{
+ const code=Math.random().toString(36).substring(2,8).toUpperCase();
+ document.getElementById('roomCode').textContent=code;
+ document.getElementById('roomInfo').style.display='block';
+});
+</script>
+</body>
+</html>
