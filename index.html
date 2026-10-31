@@ -468,6 +468,16 @@ if (event.track.kind === "audio") {
   );
 }
 
+if (event.track.kind === "audio") {
+  event.track.onunmute = () => {
+    alert("¡EL AUDIO SE ACTIVÓ! La pista ya no está silenciada.");
+  };
+
+  event.track.onmute = () => {
+    alert("La pista de audio volvió a silenciarse.");
+  };
+}
+
 remoteVideo.muted = false;
 remoteVideo.volume = 1;
 
