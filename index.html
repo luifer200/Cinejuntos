@@ -294,25 +294,6 @@ function startPingMonitor(roomId, role) {
 
     const preview = document.getElementById("preview");
 
-    preview.addEventListener("playing", () => {
-        try {
-            if (!preview.captureStream) {
-                alert("Este navegador no permite capturar el reproductor.");
-                return;
-            }
-
-            const stream = preview.captureStream();
-
-            alert(
-                "Prueba de captura:\n" +
-                "Vídeo: " + stream.getVideoTracks().length + "\n" +
-                "Audio: " + stream.getAudioTracks().length
-            );
-        } catch (error) {
-            alert("Error al capturar: " + error.message);
-        }
-    }, { once: true });
-
     preview.src = URL.createObjectURL(file);
     preview.style.display = "block";
     preview.load();
@@ -335,15 +316,6 @@ async function startHostConnection(roomId) {
   const stream = preview.captureStream();
 
 stream.getTracks().forEach(track => {
-  if (track.kind === "audio") {
-    alert(
-      "AUDIO DEL ANFITRIÓN\n" +
-      "Estado: " + track.readyState + "\n" +
-      "Silenciado: " + track.muted + "\n" +
-      "Habilitado: " + track.enabled
-    );
-  }
-
   peerConnection.addTrack(track, stream);
 });
 
@@ -469,25 +441,6 @@ async function startGuestConnection(roomId) {
 
     peerConnection.ontrack = async event => {
       remoteVideo.srcObject = event.streams[0];
-
-if (event.track.kind === "audio") {
-  alert(
-    "AUDIO RECIBIDO\n" +
-    "Estado: " + event.track.readyState + "\n" +
-    "Silenciado: " + event.track.muted + "\n" +
-    "Habilitado: " + event.track.enabled
-  );
-}
-
-if (event.track.kind === "audio") {
-  event.track.onunmute = () => {
-    alert("¡EL AUDIO SE ACTIVÓ! La pista ya no está silenciada.");
-  };
-
-  event.track.onmute = () => {
-    alert("La pista de audio volvió a silenciarse.");
-  };
-}
 
 if (event.track.kind !== "video") return;
 
