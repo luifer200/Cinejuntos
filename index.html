@@ -157,6 +157,17 @@ footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
   let currentUser = null;
   let currentRole = null;
   let unsubscribeRoom = null;
+  let peerConnection = null;
+let unsubscribeOfferCandidates = null;
+let unsubscribeAnswerCandidates = null;
+let unsubscribeConnectionRoom = null;
+
+const rtcConfiguration = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" }
+  ]
+};
 
   const aviso = document.createElement("div");
   aviso.style.cssText =
