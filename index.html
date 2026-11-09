@@ -315,9 +315,23 @@ async function startHostConnection(roomId) {
 
   const stream = preview.captureStream();
 
-stream.getTracks().forEach(track => {
-  peerConnection.addTrack(track, stream);
-});
+for (const track of stream.getTracks()) {
+  const sender = peerConnection.addTrack(track, stream);
+
+  if (track.kind === "video") {
+    try {
+      const parameters = sender.getParameters();
+
+      parameters.degradationPreference = "maintain-resolution";
+
+      await sender.setParameters(parameters);
+
+      console.log("Prioridad de resolución activada.");
+    } catch (error) {
+      console.warn("No se pudo ajustar la calidad:", error);
+    }
+  }
+}
 
     peerConnection.onicecandidate = async event => {
       if (event.candidate) {
