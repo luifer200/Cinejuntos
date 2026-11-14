@@ -101,7 +101,7 @@ const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
 const $=id=>document.getElementById(id);
 const movie=$("movie"),createButton=$("create"),fileInfo=$("fileInfo"),roomInfo=$("roomInfo"),joinButton=$("join"),joinCode=$("joinCode"),joinStatus=$("joinStatus");
 let currentUser=null,currentRole=null,unsubscribeRoom=null,unsubscribeConnectionRoom=null,unsubscribeOfferCandidates=null,unsubscribeAnswerCandidates=null;
-let peerConnection=null,fileChannel=null,selectedFile=null,applyingRemotePlayback=false,lastPlaybackAt=0,latestRoomData=null,hostStarted=false,receiveQueue=Promise.resolve(),receivedWriter=null,receivedFileHandle=null,receivedBytes=0,receivedMeta=null,guestObjectUrl=null,pingInterval=null;
+let peerConnection=null,fileChannel=null,selectedFile=null,applyingRemotePlayback=false,lastPlaybackAt=0,latestRoomData=null,hostStarted=false,receiveQueue=Promise.resolve(),receivedWriter=null,receivedFileHandle=null,receivedBytes=0,receivedMeta=null,guestObjectUrl=null,pingInterval=null,lastGuestUiUpdate=0;
 const rtcConfiguration={iceServers:[{urls:"stun:stun.l.google.com:19302"},{urls:"stun:stun1.l.google.com:19302"}]};
 const aviso=document.createElement("div");aviso.style.cssText="position:fixed;bottom:12px;left:12px;right:12px;padding:12px;background:#252943;color:white;text-align:center;border-radius:12px;z-index:9999;font-size:14px";aviso.textContent="Conectando con CineJuntos...";document.body.appendChild(aviso);
 
@@ -160,28 +160,35 @@ async function applyRemotePlayback(data){
  }finally{applyingRemotePlayback=false}
 }
 
+// Mantiene varios MB en cola para evitar pausas constantes entre fragmentos.
+const DATA_CHANNEL_HIGH_WATER=4*1024*1024;
+const DATA_CHANNEL_LOW_WATER=1*1024*1024;
 function waitForBuffer(channel){
- if(channel.bufferedAmount<=512*1024)return Promise.resolve();
+ if(channel.bufferedAmount<=DATA_CHANNEL_HIGH_WATER)return Promise.resolve();
  return new Promise(resolve=>{
   const done=()=>{channel.removeEventListener("bufferedamountlow",done);resolve()};
   channel.addEventListener("bufferedamountlow",done,{once:true});
-  if(channel.bufferedAmount<=512*1024)done();
+  if(channel.bufferedAmount<=DATA_CHANNEL_HIGH_WATER)done();
  });
 }
 
 async function sendMovie(file,channel){
  try{
   channel.send(JSON.stringify({type:"file-start",name:file.name,size:file.size,mime:file.type||"video/mp4"}));
-  const chunkSize=16*1024;let sent=0;
+  // Chrome negocia normalmente un máximo de mensaje de 64 KiB; usamos ese tamaño.
+  const chunkSize=64*1024;let sent=0,lastUiUpdate=0;
   for(let offset=0;offset<file.size;offset+=chunkSize){
    if(channel.readyState!=="open")throw new Error("La conexión se cerró durante la transferencia.");
    await waitForBuffer(channel);
    const chunk=await file.slice(offset,Math.min(offset+chunkSize,file.size)).arrayBuffer();
    channel.send(chunk);sent+=chunk.byteLength;
-   const percent=sent/file.size*100;
-   aviso.textContent="Enviando película al invitado: "+percent.toFixed(1)+"%";
-   $("hostTransferStatus").textContent="Enviado: "+formatBytes(sent)+" / "+formatBytes(file.size);
-   updateProgress("hostProgress",percent);
+   // Actualizar la interfaz cada 1 MB, no en cada fragmento.
+   if(sent-lastUiUpdate>=1024*1024||sent===file.size){
+    lastUiUpdate=sent;const percent=sent/file.size*100;
+    aviso.textContent="Enviando película al invitado: "+percent.toFixed(1)+"%";
+    $("hostTransferStatus").textContent="Enviado: "+formatBytes(sent)+" / "+formatBytes(file.size);
+    updateProgress("hostProgress",percent);
+   }
   }
   await waitForBuffer(channel);channel.send(JSON.stringify({type:"file-end"}));
   aviso.textContent="Archivo enviado. Esperando confirmación del invitado...";
@@ -189,7 +196,7 @@ async function sendMovie(file,channel){
  }catch(error){aviso.textContent="Error enviando película: "+error.message;$("hostTransferStatus").textContent=error.message}
 }
 
-function setupHostDataChannel(channel){fileChannel=channel;channel.bufferedAmountLowThreshold=256*1024;
+function setupHostDataChannel(channel){fileChannel=channel;channel.bufferedAmountLowThreshold=DATA_CHANNEL_LOW_WATER;
  channel.onopen=()=>{aviso.textContent="Conexión lista. Enviando película...";sendMovie(selectedFile,channel)};
  channel.onmessage=event=>{if(typeof event.data!=="string")return;try{const msg=JSON.parse(event.data);if(msg.type==="complete"){aviso.textContent="¡El invitado ya tiene la película!";$("hostTransferStatus").textContent="¡Descarga completada! Ambos pueden reproducir sus copias."}else if(msg.type==="error"){aviso.textContent="El invitado no pudo guardar la película.";$("hostTransferStatus").textContent="Error del invitado: "+msg.message}}catch(e){}};
  channel.onclose=()=>{if(!$("hostTransferStatus").textContent.includes("completada"))$("hostTransferStatus").textContent="La conexión de transferencia se cerró."};
@@ -202,7 +209,7 @@ async function prepareGuestStorage(meta){
  if(available&&meta.size>available*0.95)throw new Error("No hay espacio suficiente en el almacenamiento del navegador. Libera espacio e inténtalo de nuevo.");
  const root=await navigator.storage.getDirectory();const folder=await root.getDirectoryHandle("cinejuntos",{create:true});
  const safeName=meta.name.replace(/[\\/:*?"<>|]/g,"_");
- receivedFileHandle=await folder.getFileHandle(safeName,{create:true});receivedWriter=await receivedFileHandle.createWritable();receivedMeta=meta;receivedBytes=0;
+ receivedFileHandle=await folder.getFileHandle(safeName,{create:true});receivedWriter=await receivedFileHandle.createWritable();receivedMeta=meta;receivedBytes=0;lastGuestUiUpdate=0;
  $("guestMovieName").textContent=meta.name+" · "+formatBytes(meta.size);
  $("guestTransferStatus").textContent="Recibiendo y guardando la película en este teléfono...";
 }
@@ -233,8 +240,10 @@ function setupGuestDataChannel(channel){fileChannel=channel;channel.binaryType="
    }else if(event.data instanceof ArrayBuffer){
     if(!receivedWriter||!receivedMeta)throw new Error("Llegaron datos antes de iniciar el archivo.");
     await receivedWriter.write(event.data);receivedBytes+=event.data.byteLength;
-    const percent=receivedBytes/receivedMeta.size*100;updateProgress("guestProgress",percent);
-    $("guestTransferStatus").textContent="Descargando: "+percent.toFixed(1)+"% · "+formatBytes(receivedBytes)+" / "+formatBytes(receivedMeta.size);
+    if(receivedBytes-lastGuestUiUpdate>=1024*1024||receivedBytes===receivedMeta.size){
+     lastGuestUiUpdate=receivedBytes;const percent=receivedBytes/receivedMeta.size*100;updateProgress("guestProgress",percent);
+     $("guestTransferStatus").textContent="Descargando: "+percent.toFixed(1)+"% · "+formatBytes(receivedBytes)+" / "+formatBytes(receivedMeta.size);
+    }
    }
   }).catch(async error=>{console.error(error);$("guestTransferStatus").textContent="Error: "+error.message;aviso.textContent="Error recibiendo película: "+error.message;try{if(receivedWriter){await receivedWriter.abort();receivedWriter=null}}catch(e){}});
  };
