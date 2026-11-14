@@ -8,26 +8,31 @@
 *{box-sizing:border-box}
 body{margin:0;background:#090b13;color:white;font-family:Arial,sans-serif;min-height:100vh;padding:25px 16px}
 main{max-width:650px;margin:auto}
-header{text-align:center;padding:35px 0}
+header{text-align:center;padding:30px 0}
 .logo{font-size:42px}
 h1{font-size:32px;margin:10px 0}
 h1 span{color:#9b75ff}
 p{color:#a9adbd;line-height:1.6}
 .card{background:#141827;border:1px solid #292f43;border-radius:18px;padding:22px;margin:18px 0}
 h2{font-size:19px;margin-top:0}
-.upload{display:block;width:100%;min-height:170px;border:2px dashed #555078;border-radius:14px;padding:35px 15px;text-align:center;background:#191d30;cursor:pointer;overflow:hidden}
+.upload{display:block;width:100%;min-height:150px;border:2px dashed #555078;border-radius:14px;padding:30px 15px;text-align:center;background:#191d30;cursor:pointer;overflow:hidden}
 .upload strong{display:block;margin:10px}
 button{width:100%;padding:15px;border:0;border-radius:12px;background:#8057ee;color:white;font-size:16px;font-weight:bold;margin-top:15px;cursor:pointer}
-button:disabled{opacity:.5}
+button:disabled{opacity:.5;cursor:not-allowed}
 input[type=file]{display:none}
 #fileInfo,#roomInfo{display:none;margin-top:18px}
 #fileName{overflow-wrap:anywhere;color:#c8b8ff}
 .small{font-size:12px;color:#858ca2}
 footer{text-align:center;color:#72798e;font-size:12px;margin-top:35px}
-.progressTrack{height:10px;background:#30364c;border-radius:20px;overflow:hidden;margin-top:10px}
-.progressFill{height:100%;width:0%;background:#9b75ff;transition:width .15s}
-.statusBox{margin-top:14px;padding:13px;background:#191d30;border:1px solid #343957;border-radius:12px;overflow-wrap:anywhere}
-video{width:100%;margin-top:15px;border-radius:12px;background:#000}
+.status{margin-top:14px;padding:13px;border-radius:12px;background:#191d30;border:1px solid #343957;color:#c9cde0;font-size:13px;line-height:1.5}
+#preview{display:none;width:100%;margin-top:15px;border-radius:12px;background:#000}
+#roomPanel{margin-top:20px;padding:18px;background:#191d30;border:1px solid #555078;border-radius:14px}
+.ready{color:#86efac}
+.waiting{color:#facc15}
+.code{overflow-wrap:anywhere;text-align:center;color:#b69aff;letter-spacing:2px;font-size:18px;cursor:pointer;user-select:none}
+.permission{margin-top:18px;padding:12px;background:#252943;border-radius:12px}
+.permission label{display:flex;align-items:center;gap:10px}
+.permission input{width:20px;height:20px}
 </style>
 </head>
 <body>
@@ -39,287 +44,605 @@ video{width:100%;margin-top:15px;border-radius:12px;background:#000}
 </header>
 
 <section class="card">
- <h2>🍿 Crear una sala</h2>
- <p>Selecciona una película. Se enviará una copia al teléfono del invitado para que ambos la reproduzcan localmente.</p>
+ <h2>🍿 Tu película</h2>
+ <p>Descarga exactamente el mismo archivo en los dos teléfonos. Después, cada uno selecciona su copia aquí.</p>
  <label class="upload" for="movie">
   <div style="font-size:35px">📁</div>
-  <strong>Seleccionar película</strong>
-  <span class="small">MP4 y MKV · Transferencia por partes · Archivos grandes</span>
+  <strong>Seleccionar película de este celular</strong>
+  <span class="small">MP4 recomendado · También puedes probar MKV si tu navegador lo admite</span>
  </label>
- <input id="movie" type="file" accept=".mp4,.mkv,video/mp4,video/x-matroska">
+ <input id="movie" type="file" accept=".mp4,.mkv,.webm,.mov,video/*">
+
  <div id="fileInfo">
-  <p>Película seleccionada:</p>
+  <p>Archivo seleccionado:</p>
   <strong id="fileName"></strong>
   <p id="fileSize"></p>
-  <button id="create">Crear sala</button>
  </div>
- <video id="preview" controls playsinline preload="metadata" style="display:none"></video>
+
+ <video id="preview" controls playsinline preload="metadata"></video>
+
+ <button id="create" type="button" style="display:none">Crear sala</button>
  <div id="roomInfo">
   <p>Tu código de sala:</p>
-  <h2 id="roomCode" style="text-align:center;color:#b69aff;letter-spacing:5px;cursor:pointer;user-select:none;-webkit-user-select:none"></h2>
-  <p class="small">Comparte este código con tu invitado.</p>
+  <div id="roomCode" class="code"></div>
+  <p class="small">Comparte este código con tu amigo.</p>
  </div>
- <div id="pingPanel" class="statusBox" style="display:none">
-  <div style="display:flex;justify-content:space-between;align-items:center"><strong>📶 Conexión P2P</strong><strong id="myPing" style="color:#a5a9c4">Midiendo...</strong></div>
-  <div style="margin-top:12px;display:flex;justify-content:space-between"><span class="small">Calidad de conexión</span><strong id="pingQuality">Midiendo...</strong></div>
- </div>
+ <div id="roomPanel" style="display:none"></div>
+ <div id="status" class="status">Conectando con CineJuntos...</div>
 </section>
 
 <section class="card">
  <h2>🤝 Unirse a una sala</h2>
  <p>Introduce el código que te haya enviado tu amigo.</p>
- <input id="joinCode" type="text" placeholder="Código de la sala" maxlength="40" autocomplete="off" style="display:block;width:100%;padding:15px;border-radius:12px;border:1px solid #555078;background:#191d30;color:white;font-size:16px">
+ <input id="joinCode" type="text" placeholder="Código de la sala" maxlength="40" autocomplete="off"
+ style="display:block;width:100%;padding:15px;border-radius:12px;border:1px solid #555078;background:#191d30;color:white;font-size:16px;">
  <button id="join">Unirse a la sala</button>
  <p id="joinStatus" class="small"></p>
 </section>
 
-<section id="guestMovieCard" class="card" style="display:none">
- <h2>🎞️ Tu película</h2>
- <p id="guestMovieName" class="small"></p>
- <div id="guestTransferStatus" class="statusBox">Esperando la transferencia...</div>
- <div class="progressTrack"><div id="guestProgress" class="progressFill"></div></div>
- <video id="remoteVideo" controls playsinline preload="metadata" style="display:none"></video>
- <button id="guestFullscreenButton" style="display:none;background:#343957">⛶ Pantalla completa</button>
-</section>
 <footer>CineJuntos · Nuestro cine privado</footer>
 </main>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, doc, getDoc, updateDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+import {
+  getFirestore, collection, addDoc, doc, getDoc, updateDoc,
+  onSnapshot, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
-const firebaseConfig={
- apiKey:"AIzaSyDDGY0myoFzLpUKzH9lPXZ6K-9UmGEd9qw",
- authDomain:"cinejuntos-b4065.firebaseapp.com",
- projectId:"cinejuntos-b4065",
- storageBucket:"cinejuntos-b4065.firebasestorage.app",
- messagingSenderId:"427008123156",
- appId:"1:427008123156:web:9070cb766803afeb2d2201"
+const firebaseConfig = {
+  apiKey: "AIzaSyDDGY0myoFzLpUKzH9lPXZ6K-9UmGEd9qw",
+  authDomain: "cinejuntos-b4065.firebaseapp.com",
+  projectId: "cinejuntos-b4065",
+  storageBucket: "cinejuntos-b4065.firebasestorage.app",
+  messagingSenderId: "427008123156",
+  appId: "1:427008123156:web:9070cb766803afeb2d2201"
 };
-const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
-const $=id=>document.getElementById(id);
-const movie=$("movie"),createButton=$("create"),fileInfo=$("fileInfo"),roomInfo=$("roomInfo"),joinButton=$("join"),joinCode=$("joinCode"),joinStatus=$("joinStatus");
-let currentUser=null,currentRole=null,unsubscribeRoom=null,unsubscribeConnectionRoom=null,unsubscribeOfferCandidates=null,unsubscribeAnswerCandidates=null;
-let peerConnection=null,fileChannel=null,selectedFile=null,applyingRemotePlayback=false,lastPlaybackAt=0,latestRoomData=null,hostStarted=false,receiveQueue=Promise.resolve(),receivedWriter=null,receivedFileHandle=null,receivedBytes=0,receivedMeta=null,guestObjectUrl=null,pingInterval=null,lastGuestUiUpdate=0;
-const rtcConfiguration={iceServers:[{urls:"stun:stun.l.google.com:19302"},{urls:"stun:stun1.l.google.com:19302"}]};
-const aviso=document.createElement("div");aviso.style.cssText="position:fixed;bottom:12px;left:12px;right:12px;padding:12px;background:#252943;color:white;text-align:center;border-radius:12px;z-index:9999;font-size:14px";aviso.textContent="Conectando con CineJuntos...";document.body.appendChild(aviso);
 
-try{const credential=await signInAnonymously(auth);currentUser=credential.user;aviso.textContent="¡Conectado a CineJuntos!"}catch(error){aviso.textContent="Error de conexión: "+error.message}
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-function formatBytes(bytes){if(bytes<1024*1024)return (bytes/1024).toFixed(0)+" KB";if(bytes<1024**3)return (bytes/1024/1024).toFixed(1)+" MB";return (bytes/1024**3).toFixed(2)+" GB"}
-function activeVideo(){return currentRole==="host"?$("preview"):$("remoteVideo")}
-function updateProgress(elementId,percent){$(elementId).style.width=Math.max(0,Math.min(100,percent))+"%"}
+const movieInput = document.getElementById("movie");
+const fileInfo = document.getElementById("fileInfo");
+const fileName = document.getElementById("fileName");
+const fileSize = document.getElementById("fileSize");
+const preview = document.getElementById("preview");
+const roomInfo = document.getElementById("roomInfo");
+const roomCode = document.getElementById("roomCode");
+const roomPanel = document.getElementById("roomPanel");
+const joinButton = document.getElementById("join");
+const joinCode = document.getElementById("joinCode");
+const joinStatus = document.getElementById("joinStatus");
+const statusBox = document.getElementById("status");
 
-movie.addEventListener("change",()=>{
- const file=movie.files[0];if(!file)return;selectedFile=file;
- $("fileName").textContent=file.name;$("fileSize").textContent=formatBytes(file.size);
- fileInfo.style.display="block";roomInfo.style.display="none";
- const preview=$("preview");if(preview.dataset.url)URL.revokeObjectURL(preview.dataset.url);
- const url=URL.createObjectURL(file);preview.dataset.url=url;preview.src=url;preview.style.display="block";preview.load();
-});
+let currentUser = null;
+let currentRole = null;
+let activeRoomId = null;
+let roomRef = null;
+let unsubscribeRoom = null;
+let selectedFile = null;
+let objectUrl = null;
+let applyingRemote = false;
+let lastCommandId = null;
+let lastControllerUid = null;
+let authoritativeState = {
+  playbackState: "paused",
+  playbackTime: 0,
+  playbackBy: null
+};
+let syncInterval = null;
+let playbackUnlocked = false;
+let guestPermission = false;
+let lastLocalActionAt = 0;
 
-function startPingMonitor(){if(pingInterval)clearInterval(pingInterval);$("pingPanel").style.display="block";
- async function measure(){if(!peerConnection)return;try{const stats=await peerConnection.getStats();let pairId=null;stats.forEach(r=>{if(r.type==="transport"&&r.selectedCandidatePairId)pairId=r.selectedCandidatePairId});let ping=null;stats.forEach(r=>{if(r.type==="candidate-pair"&&(r.id===pairId||r.selected===true)&&r.currentRoundTripTime!==undefined)ping=Math.round(r.currentRoundTripTime*1000)});if(ping===null){$("myPing").textContent="-- ms";$("pingQuality").textContent="Midiendo...";return}const color=ping<60?"#4ade80":ping<=150?"#facc15":"#f87171";$("myPing").textContent=ping+" ms";$("myPing").style.color=color;$("pingQuality").style.color=color;$("pingQuality").textContent=ping<60?"Excelente":ping<=150?"Regular":"Lenta"}catch(e){console.error(e)}}
- measure();pingInterval=setInterval(measure,3000);
+function setStatus(message) {
+  statusBox.textContent = message;
 }
 
-async function publishPlayback(state){
- if(applyingRemotePlayback||!currentRole)return;
- if(currentRole==="guest"&&latestRoomData?.allowGuestPlayback!==true)return;
- const video=activeVideo();if(!video)return;
- try{await updateDoc(doc(db,"rooms",currentRoomId),{playbackState:state,playbackPosition:Number.isFinite(video.currentTime)?video.currentTime:0,playbackBy:currentUser.uid,playbackAt:Date.now()})}catch(e){console.error("Error sincronizando reproducción:",e)}
+function formatSize(bytes) {
+  if (bytes >= 1024 * 1024 * 1024) return (bytes / 1024 / 1024 / 1024).toFixed(2) + " GB";
+  return (bytes / 1024 / 1024).toFixed(1) + " MB";
 }
-let currentRoomId=null;
-function attachPlayback(video){
- video.onplay=async()=>{
-  if(applyingRemotePlayback)return;
-  if(currentRole==="guest"&&latestRoomData?.allowGuestPlayback!==true){
-   applyingRemotePlayback=true;video.pause();applyingRemotePlayback=false;
-   aviso.textContent="El anfitrión no ha permitido pausar ni reproducir.";return;
+
+function canControl() {
+  return currentRole === "host" || (currentRole === "guest" && guestPermission);
+}
+
+function makeCommandId() {
+  return Date.now().toString() + "_" + Math.random().toString(36).slice(2);
+}
+
+async function sendPlaybackState(state, time) {
+  if (!roomRef || !currentUser || !canControl()) return;
+  const commandId = makeCommandId();
+  const safeTime = Number.isFinite(time) ? Math.max(0, time) : 0;
+
+  authoritativeState = {
+    playbackState: state,
+    playbackTime: safeTime,
+    playbackBy: currentUser.uid
+  };
+  lastControllerUid = currentUser.uid;
+  lastCommandId = commandId;
+  lastLocalActionAt = Date.now();
+
+  try {
+    await updateDoc(roomRef, {
+      playbackState: state,
+      playbackTime: safeTime,
+      playbackBy: currentUser.uid,
+      playbackCommandId: commandId,
+      playbackUpdatedAt: Date.now()
+    });
+  } catch (error) {
+    setStatus("No se pudo sincronizar: " + error.message);
   }
-  publishPlayback("playing");
- };
- video.onpause=async()=>{
-  if(applyingRemotePlayback)return;
-  if(currentRole==="guest"&&latestRoomData?.allowGuestPlayback!==true&&latestRoomData?.playbackState==="playing"){
-   applyingRemotePlayback=true;await video.play().catch(()=>{});applyingRemotePlayback=false;return;
-  }
-  publishPlayback("paused");
- };
- video.onseeked=()=>publishPlayback(video.paused?"paused":"playing");
-}
-async function applyRemotePlayback(data){
- if(!data||!data.playbackAt||data.playbackAt===lastPlaybackAt||data.playbackBy===currentUser.uid)return;
- const video=activeVideo();if(!video||!video.src)return;
- lastPlaybackAt=data.playbackAt;applyingRemotePlayback=true;
- try{
-  if(typeof data.playbackPosition==="number"&&Math.abs(video.currentTime-data.playbackPosition)>1.25)video.currentTime=data.playbackPosition;
-  if(data.playbackState==="playing")await video.play().catch(()=>{aviso.textContent="Toca reproducir en tu reproductor para comenzar."});
-  else if(data.playbackState==="paused")video.pause();
- }finally{applyingRemotePlayback=false}
 }
 
-// Mantiene varios MB en cola para evitar pausas constantes entre fragmentos.
-const DATA_CHANNEL_HIGH_WATER=4*1024*1024;
-const DATA_CHANNEL_LOW_WATER=1*1024*1024;
-function waitForBuffer(channel){
- if(channel.bufferedAmount<=DATA_CHANNEL_HIGH_WATER)return Promise.resolve();
- return new Promise(resolve=>{
-  const done=()=>{channel.removeEventListener("bufferedamountlow",done);resolve()};
-  channel.addEventListener("bufferedamountlow",done,{once:true});
-  if(channel.bufferedAmount<=DATA_CHANNEL_HIGH_WATER)done();
- });
-}
+async function applyRemoteState(data, force = false) {
+  if (!data || !preview.src || !Number.isFinite(data.playbackTime)) return;
 
-async function sendMovie(file,channel){
- try{
-  channel.send(JSON.stringify({type:"file-start",name:file.name,size:file.size,mime:file.type||"video/mp4"}));
-  // Chrome negocia normalmente un máximo de mensaje de 64 KiB; usamos ese tamaño.
-  const chunkSize=64*1024;let sent=0,lastUiUpdate=0;
-  for(let offset=0;offset<file.size;offset+=chunkSize){
-   if(channel.readyState!=="open")throw new Error("La conexión se cerró durante la transferencia.");
-   await waitForBuffer(channel);
-   const chunk=await file.slice(offset,Math.min(offset+chunkSize,file.size)).arrayBuffer();
-   channel.send(chunk);sent+=chunk.byteLength;
-   // Actualizar la interfaz cada 1 MB, no en cada fragmento.
-   if(sent-lastUiUpdate>=1024*1024||sent===file.size){
-    lastUiUpdate=sent;const percent=sent/file.size*100;
-    aviso.textContent="Enviando película al invitado: "+percent.toFixed(1)+"%";
-    $("hostTransferStatus").textContent="Enviado: "+formatBytes(sent)+" / "+formatBytes(file.size);
-    updateProgress("hostProgress",percent);
-   }
-  }
-  await waitForBuffer(channel);channel.send(JSON.stringify({type:"file-end"}));
-  aviso.textContent="Archivo enviado. Esperando confirmación del invitado...";
-  $("hostTransferStatus").textContent="Transferencia enviada. Verificando archivo en el invitado...";
- }catch(error){aviso.textContent="Error enviando película: "+error.message;$("hostTransferStatus").textContent=error.message}
-}
+  authoritativeState = {
+    playbackState: data.playbackState || "paused",
+    playbackTime: data.playbackTime || 0,
+    playbackBy: data.playbackBy || null
+  };
+  lastControllerUid = data.playbackBy || null;
 
-function setupHostDataChannel(channel){fileChannel=channel;channel.bufferedAmountLowThreshold=DATA_CHANNEL_LOW_WATER;
- channel.onopen=()=>{aviso.textContent="Conexión lista. Enviando película...";sendMovie(selectedFile,channel)};
- channel.onmessage=event=>{if(typeof event.data!=="string")return;try{const msg=JSON.parse(event.data);if(msg.type==="complete"){aviso.textContent="¡El invitado ya tiene la película!";$("hostTransferStatus").textContent="¡Descarga completada! Ambos pueden reproducir sus copias."}else if(msg.type==="error"){aviso.textContent="El invitado no pudo guardar la película.";$("hostTransferStatus").textContent="Error del invitado: "+msg.message}}catch(e){}};
- channel.onclose=()=>{if(!$("hostTransferStatus").textContent.includes("completada"))$("hostTransferStatus").textContent="La conexión de transferencia se cerró."};
-}
+  if (!preview.readyState || preview.readyState < 1) return;
 
-async function prepareGuestStorage(meta){
- if(!navigator.storage||!navigator.storage.getDirectory)throw new Error("Este Chrome no ofrece almacenamiento privado compatible. Actualiza Chrome e inténtalo de nuevo.");
- try{if(navigator.storage.persist)await navigator.storage.persist()}catch(e){}
- const estimate=await navigator.storage.estimate();const available=(estimate.quota||0)-(estimate.usage||0);
- if(available&&meta.size>available*0.95)throw new Error("No hay espacio suficiente en el almacenamiento del navegador. Libera espacio e inténtalo de nuevo.");
- const root=await navigator.storage.getDirectory();const folder=await root.getDirectoryHandle("cinejuntos",{create:true});
- const safeName=meta.name.replace(/[\\/:*?"<>|]/g,"_");
- receivedFileHandle=await folder.getFileHandle(safeName,{create:true});receivedWriter=await receivedFileHandle.createWritable();receivedMeta=meta;receivedBytes=0;lastGuestUiUpdate=0;
- $("guestMovieName").textContent=meta.name+" · "+formatBytes(meta.size);
- $("guestTransferStatus").textContent="Recibiendo y guardando la película en este teléfono...";
-}
+  const difference = Math.abs(preview.currentTime - data.playbackTime);
+  const threshold = data.playbackState === "playing" ? 1.25 : 0.35;
 
-async function finishGuestFile(channel){
- if(!receivedWriter||!receivedMeta)throw new Error("No se pudo preparar el archivo recibido.");
- await receivedWriter.close();receivedWriter=null;
- if(receivedBytes!==receivedMeta.size)throw new Error("El archivo llegó incompleto. Recibidos "+formatBytes(receivedBytes)+" de "+formatBytes(receivedMeta.size)+".");
- const file=await receivedFileHandle.getFile();
- if(guestObjectUrl)URL.revokeObjectURL(guestObjectUrl);
- guestObjectUrl=URL.createObjectURL(file);
- const video=$("remoteVideo");video.src=guestObjectUrl;video.style.display="block";video.load();attachPlayback(video);
- if(latestRoomData)await applyRemotePlayback(latestRoomData);
- $("guestTransferStatus").textContent="¡Película descargada y lista! Ya puedes reproducirla.";
- updateProgress("guestProgress",100);$("guestFullscreenButton").style.display="block";
- $("guestFullscreenButton").onclick=async()=>{try{if(video.requestFullscreen)await video.requestFullscreen();else if(video.webkitEnterFullscreen)video.webkitEnterFullscreen()}catch(e){aviso.textContent="No se pudo activar pantalla completa."}};
- channel.send(JSON.stringify({type:"complete"}));aviso.textContent="¡Película descargada! Ya pueden verla sincronizados.";
-}
-
-function setupGuestDataChannel(channel){fileChannel=channel;channel.binaryType="arraybuffer";
- channel.onmessage=event=>{
-  receiveQueue=receiveQueue.then(async()=>{
-   if(typeof event.data==="string"){
-    const msg=JSON.parse(event.data);
-    if(msg.type==="file-start"){
-     try{await prepareGuestStorage(msg)}catch(error){$("guestTransferStatus").textContent=error.message;aviso.textContent=error.message;try{channel.send(JSON.stringify({type:"error",message:error.message}))}catch(e){};throw error}
-    }else if(msg.type==="file-end")await finishGuestFile(channel);
-   }else if(event.data instanceof ArrayBuffer){
-    if(!receivedWriter||!receivedMeta)throw new Error("Llegaron datos antes de iniciar el archivo.");
-    await receivedWriter.write(event.data);receivedBytes+=event.data.byteLength;
-    if(receivedBytes-lastGuestUiUpdate>=1024*1024||receivedBytes===receivedMeta.size){
-     lastGuestUiUpdate=receivedBytes;const percent=receivedBytes/receivedMeta.size*100;updateProgress("guestProgress",percent);
-     $("guestTransferStatus").textContent="Descargando: "+percent.toFixed(1)+"% · "+formatBytes(receivedBytes)+" / "+formatBytes(receivedMeta.size);
+  applyingRemote = true;
+  try {
+    if (force || difference > threshold) {
+      try {
+        preview.currentTime = data.playbackTime;
+      } catch (error) {
+        console.warn("No se pudo ajustar la posición:", error);
+      }
     }
-   }
-  }).catch(async error=>{console.error(error);$("guestTransferStatus").textContent="Error: "+error.message;aviso.textContent="Error recibiendo película: "+error.message;try{if(receivedWriter){await receivedWriter.abort();receivedWriter=null}}catch(e){}});
- };
- channel.onopen=()=>{aviso.textContent="Canal de transferencia conectado. Esperando archivo..."};
- channel.onclose=()=>{if(!guestObjectUrl){$("guestTransferStatus").textContent="La transferencia se interrumpió. Vuelve a unirte a la sala para intentarlo otra vez."}};
-}
 
-async function startHostConnection(roomId){
- if(!selectedFile)throw new Error("No hay película seleccionada.");
- const roomSnap=await getDoc(doc(db,"rooms",roomId));if(!roomSnap.exists()||!roomSnap.data().guestUid)throw new Error("Primero espera a que el invitado se una a la sala.");
- peerConnection=new RTCPeerConnection(rtcConfiguration);
- const channel=peerConnection.createDataChannel("cinejuntos-file",{ordered:true});setupHostDataChannel(channel);
- peerConnection.onicecandidate=async event=>{if(event.candidate)try{await addDoc(collection(db,"rooms",roomId,"offerCandidates"),event.candidate.toJSON())}catch(e){console.error(e)}};
- peerConnection.onconnectionstatechange=()=>{aviso.textContent="Conexión: "+peerConnection.connectionState;if(peerConnection.connectionState==="connected")startPingMonitor()};
- const roomRef=doc(db,"rooms",roomId);
- const offer=await peerConnection.createOffer();await peerConnection.setLocalDescription(offer);
- await updateDoc(roomRef,{offer:{type:offer.type,sdp:offer.sdp}});
- unsubscribeConnectionRoom=onSnapshot(roomRef,async snapshot=>{
-  if(!snapshot.exists())return;const data=snapshot.data();latestRoomData=data;await applyRemotePlayback(data);
-  if(data.answer&&!peerConnection.currentRemoteDescription){
-   await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-   unsubscribeAnswerCandidates=onSnapshot(collection(db,"rooms",roomId,"answerCandidates"),async candidateSnapshot=>{for(const change of candidateSnapshot.docChanges())if(change.type==="added")try{await peerConnection.addIceCandidate(new RTCIceCandidate(change.doc.data()))}catch(e){console.error("ICE:",e)}});
+    if (data.playbackState === "playing") {
+      if (playbackUnlocked) {
+        await preview.play().catch(() => {
+          setStatus("Toca «Activar reproducción» para permitir que Chrome reproduzca la película.");
+        });
+      } else {
+        setStatus("La película está sincronizada. Toca «Activar reproducción» para habilitar el audio y la reproducción.");
+      }
+    } else {
+      preview.pause();
+    }
+  } finally {
+    applyingRemote = false;
   }
- });
 }
 
-async function startGuestConnection(roomId){
- if(!navigator.storage||!navigator.storage.getDirectory)throw new Error("Para recibir películas grandes, usa una versión actualizada de Chrome en Android.");
- $("guestMovieCard").style.display="block";
- peerConnection=new RTCPeerConnection(rtcConfiguration);
- peerConnection.ondatachannel=event=>setupGuestDataChannel(event.channel);
- peerConnection.onicecandidate=async event=>{if(event.candidate)try{await addDoc(collection(db,"rooms",roomId,"answerCandidates"),event.candidate.toJSON())}catch(e){console.error(e)}};
- peerConnection.onconnectionstatechange=()=>{aviso.textContent="Conexión: "+peerConnection.connectionState;if(peerConnection.connectionState==="connected")startPingMonitor()};
- const roomRef=doc(db,"rooms",roomId);
- unsubscribeConnectionRoom=onSnapshot(roomRef,async snapshot=>{
-  if(!snapshot.exists())return;const data=snapshot.data();latestRoomData=data;await applyRemotePlayback(data);
-  if(data.offer&&!peerConnection.currentRemoteDescription){
-   await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-   unsubscribeOfferCandidates=onSnapshot(collection(db,"rooms",roomId,"offerCandidates"),async candidateSnapshot=>{for(const change of candidateSnapshot.docChanges())if(change.type==="added")try{await peerConnection.addIceCandidate(new RTCIceCandidate(change.doc.data()))}catch(e){console.error("ICE:",e)}});
-   const answer=await peerConnection.createAnswer();await peerConnection.setLocalDescription(answer);
-   await updateDoc(roomRef,{answer:{type:answer.type,sdp:answer.sdp}});
-   aviso.textContent="Conectando para recibir la película...";
+function renderRoomPanel(data = {}) {
+  roomPanel.style.display = "block";
+  roomPanel.innerHTML = `
+    <h2 style="text-align:center;color:#b69aff">🎬 Sala CineJuntos</h2>
+    <p id="hostReadyText"></p>
+    <p id="guestReadyText"></p>
+    <p id="syncMessage" class="small">Cada persona reproduce su propia copia. No se transmite vídeo.</p>
+    <button id="unlockPlaybackButton" type="button">▶ Activar reproducción en este celular</button>
+    <div id="hostPermission" class="permission" style="display:none">
+      <label>
+        <input id="guestPermission" type="checkbox">
+        <strong>Permitir al invitado pausar y reproducir</strong>
+      </label>
+    </div>
+    <p id="permissionInfo" class="small" style="display:none"></p>
+    <button id="startTogetherButton" type="button" style="display:none">▶ Iniciar película para los dos</button>
+  `;
+
+  const unlockButton = document.getElementById("unlockPlaybackButton");
+  unlockButton.addEventListener("click", async () => {
+    playbackUnlocked = true;
+    unlockButton.textContent = "✓ Reproducción habilitada";
+    unlockButton.disabled = true;
+
+    if (authoritativeState.playbackState === "playing") {
+      await preview.play().catch(() => {});
+    } else {
+      // Aprovecha el toque del usuario para habilitar el reproductor sin publicar
+      // una orden accidental de reproducción o pausa en la sala.
+      try {
+        applyingRemote = true;
+        await preview.play();
+        preview.pause();
+        preview.currentTime = authoritativeState.playbackTime || 0;
+      } catch (error) {
+        setStatus("Chrome no permitió activar el reproductor. Inténtalo otra vez.");
+        unlockButton.disabled = false;
+        unlockButton.textContent = "▶ Activar reproducción en este celular";
+        playbackUnlocked = false;
+      } finally {
+        applyingRemote = false;
+      }
+    }
+  });
+
+  if (currentRole === "host") {
+    document.getElementById("hostPermission").style.display = "block";
+    const check = document.getElementById("guestPermission");
+    check.checked = data.allowGuestPlayback === true;
+    check.addEventListener("change", async () => {
+      check.disabled = true;
+      try {
+        await updateDoc(roomRef, { allowGuestPlayback: check.checked });
+        setStatus(check.checked ? "Permiso del invitado activado." : "Permiso del invitado desactivado.");
+      } catch (error) {
+        setStatus("Error guardando el permiso: " + error.message);
+      } finally {
+        check.disabled = false;
+      }
+    });
+
+    const startButton = document.getElementById("startTogetherButton");
+    startButton.style.display = "block";
+    startButton.addEventListener("click", async () => {
+      if (!selectedFile || preview.readyState < 1) {
+        setStatus("Selecciona y carga tu película antes de iniciar.");
+        return;
+      }
+      if (!data.guestReady) {
+        setStatus("Tu invitado todavía no ha seleccionado su película.");
+        return;
+      }
+      if (!playbackUnlocked) {
+        setStatus("Primero pulsa «Activar reproducción en este celular».");
+        return;
+      }
+      await sendPlaybackState("playing", 0);
+      await preview.play().catch(() => {});
+    });
+  } else {
+    document.getElementById("permissionInfo").style.display = "block";
+    document.getElementById("permissionInfo").textContent =
+      data.allowGuestPlayback
+        ? "El anfitrión te permite pausar y reproducir."
+        : "Solo el anfitrión puede controlar la película.";
   }
- });
+
+  updateReadinessUI(data);
 }
 
-function showRoomPanel(roomId){
- if(unsubscribeRoom)unsubscribeRoom();let panel=$("roomPanel");if(!panel){panel=document.createElement("div");panel.id="roomPanel";panel.className="statusBox";roomInfo.parentElement.appendChild(panel)}
- panel.innerHTML=`<h2 style="text-align:center;color:#b69aff">🎬 Sala CineJuntos</h2><p id="hostState">Anfitrión: sala creada</p><p id="guestState">Invitado: esperando conexión...</p><div id="hostPermission" style="margin-top:20px;padding:12px;background:#252943;border-radius:12px"><label style="display:flex;align-items:center;gap:10px"><input id="guestPermission" type="checkbox" style="width:20px;height:20px;display:inline-block"><strong>Permitir al invitado pausar y reproducir</strong></label></div><p id="guestPermissionInfo" style="display:none;color:#c8b8ff;margin-top:15px"></p><div id="hostTransferStatus" class="statusBox" style="display:none">Preparando transferencia...</div><div class="progressTrack" id="hostProgressTrack" style="display:none"><div id="hostProgress" class="progressFill"></div></div><p class="small" style="margin-top:18px">La película se transferirá al teléfono del invitado antes de reproducirse.</p>`;
- if(currentRole==="host"){
-  const startButton=document.createElement("button");startButton.textContent="📤 Enviar película al invitado";panel.appendChild(startButton);
-  startButton.addEventListener("click",async()=>{if(hostStarted)return;hostStarted=true;startButton.disabled=true;startButton.textContent="Preparando conexión...";$("hostTransferStatus").style.display="block";$("hostProgressTrack").style.display="block";$("hostTransferStatus").textContent="Conectando con el invitado...";try{await startHostConnection(roomId);startButton.textContent="Transferencia iniciada"}catch(error){hostStarted=false;startButton.disabled=false;startButton.textContent="📤 Reintentar envío";$("hostTransferStatus").textContent=error.message;aviso.textContent=error.message}});
-  attachPlayback($("preview"));
- }
- const roomRef=doc(db,"rooms",roomId);
- unsubscribeRoom=onSnapshot(roomRef,snapshot=>{
-  if(!snapshot.exists()){aviso.textContent="La sala ya no existe.";return}const data=snapshot.data();latestRoomData=data;
-  $("hostState").textContent="Anfitrión: sala creada";$("guestState").textContent=data.guestUid?"Invitado: conectado a la sala":"Invitado: esperando conexión...";
-  if(currentRole==="host"){$("hostPermission").style.display="block";$("guestPermissionInfo").style.display="none";$("guestPermission").checked=data.allowGuestPlayback===true}
-  else{$("hostPermission").style.display="none";$("guestPermissionInfo").style.display="block";$("guestPermissionInfo").textContent=data.allowGuestPlayback?"El anfitrión te permite pausar y reproducir.":"El anfitrión no ha permitido pausar ni reproducir."}
- },error=>{aviso.textContent="Error actualizando la sala: "+error.message});
- const permissionCheck=$("guestPermission");permissionCheck.addEventListener("change",async()=>{if(currentRole!=="host")return;permissionCheck.disabled=true;try{await updateDoc(roomRef,{allowGuestPlayback:permissionCheck.checked});aviso.textContent=permissionCheck.checked?"Permiso del invitado activado.":"Permiso del invitado desactivado."}catch(error){aviso.textContent="Error guardando permiso: "+error.message}finally{permissionCheck.disabled=false}});
+function updateReadinessUI(data) {
+  const hostText = document.getElementById("hostReadyText");
+  const guestText = document.getElementById("guestReadyText");
+  if (!hostText || !guestText) return;
+
+  hostText.innerHTML = data.hostReady
+    ? '<span class="ready">✓ Anfitrión: película cargada</span>'
+    : '<span class="waiting">… Anfitrión: esperando película</span>';
+
+  guestText.innerHTML = data.guestUid
+    ? (data.guestReady
+        ? '<span class="ready">✓ Invitado: película cargada</span>'
+        : '<span class="waiting">… Invitado: debe seleccionar su película</span>')
+    : '<span class="waiting">… Invitado: esperando conexión</span>';
+
+  const startButton = document.getElementById("startTogetherButton");
+  if (startButton && currentRole === "host") {
+    startButton.disabled = !(data.hostReady && data.guestReady);
+    startButton.textContent = data.guestReady
+      ? "▶ Iniciar película para los dos"
+      : "Esperando película del invitado...";
+  }
 }
 
-createButton.addEventListener("click",async()=>{
- if(!currentUser){aviso.textContent="No hay conexión con Firebase.";return}const file=movie.files[0];if(!file){aviso.textContent="Primero selecciona una película.";return}
- createButton.disabled=true;createButton.textContent="Creando sala...";
- try{const room=await addDoc(collection(db,"rooms"),{ownerUid:currentUser.uid,guestUid:null,movieName:file.name,status:"waiting",allowGuestPlayback:true,playbackState:"paused",playbackPosition:0,playbackAt:0,createdAt:serverTimestamp()});currentRole="host";currentRoomId=room.id;$("roomCode").textContent=room.id;$("roomCode").onclick=async()=>{try{await navigator.clipboard.writeText(room.id);aviso.textContent="¡Código copiado correctamente!"}catch(e){aviso.textContent="No se pudo copiar el código."}};roomInfo.style.display="block";showRoomPanel(room.id);aviso.textContent="¡Sala creada! Espera a que tu invitado se una."}
- catch(error){aviso.textContent="Error al crear sala: "+error.message}finally{createButton.disabled=false;createButton.textContent="Crear sala"}
+function startRoomListener(roomId) {
+  if (unsubscribeRoom) unsubscribeRoom();
+  roomRef = doc(db, "rooms", roomId);
+
+  unsubscribeRoom = onSnapshot(roomRef, async snapshot => {
+    if (!snapshot.exists()) {
+      setStatus("Esta sala ya no existe.");
+      return;
+    }
+
+    const data = snapshot.data();
+    guestPermission = data.allowGuestPlayback === true;
+    updateReadinessUI(data);
+
+    const check = document.getElementById("guestPermission");
+    if (check && currentRole === "host") check.checked = guestPermission;
+
+    if (currentRole === "guest") {
+      const permissionInfo = document.getElementById("permissionInfo");
+      if (permissionInfo) {
+        permissionInfo.textContent = guestPermission
+          ? "El anfitrión te permite pausar y reproducir."
+          : "Solo el anfitrión puede controlar la película.";
+      }
+    }
+
+    const commandId = data.playbackCommandId || null;
+    if (
+      commandId &&
+      commandId !== lastCommandId &&
+      data.playbackBy !== currentUser.uid
+    ) {
+      lastCommandId = commandId;
+      await applyRemoteState(data, true);
+    } else if (data.playbackCommandId && !lastCommandId) {
+      lastCommandId = data.playbackCommandId;
+      authoritativeState = {
+        playbackState: data.playbackState || "paused",
+        playbackTime: data.playbackTime || 0,
+        playbackBy: data.playbackBy || null
+      };
+      lastControllerUid = data.playbackBy || null;
+      if (preview.readyState >= 1) await applyRemoteState(data, true);
+    }
+
+    if (data.playbackBy) lastControllerUid = data.playbackBy;
+
+    if (data.guestUid && data.hostReady && data.guestReady) {
+      setStatus("¡Los dos tienen la película cargada! Activen el reproductor y comiencen.");
+    } else if (currentRole === "host") {
+      setStatus(data.guestUid
+        ? "Esperando a que el invitado seleccione su copia de la película."
+        : "Sala creada. Comparte el código con tu amigo.");
+    } else {
+      setStatus(data.hostReady
+        ? "Te uniste. Selecciona la misma película en este celular."
+        : "Esperando a que el anfitrión cargue su película.");
+    }
+  }, error => {
+    setStatus("Error actualizando la sala: " + error.message);
+  });
+
+  if (syncInterval) clearInterval(syncInterval);
+  syncInterval = setInterval(async () => {
+    if (!roomRef || !preview.src || preview.readyState < 2 || !currentUser || !canControl()) return;
+
+    const controller = lastControllerUid || (currentRole === "host" ? currentUser.uid : null);
+    if (controller !== currentUser.uid) return;
+
+    try {
+      const syncCommandId = makeCommandId();
+      lastCommandId = syncCommandId;
+      await updateDoc(roomRef, {
+        playbackTime: preview.currentTime || 0,
+        playbackState: preview.paused ? "paused" : "playing",
+        playbackBy: currentUser.uid,
+        playbackCommandId: syncCommandId,
+        playbackUpdatedAt: Date.now()
+      });
+    } catch (error) {
+      console.warn("No se pudo actualizar la posición:", error);
+    }
+  }, 5000);
+}
+
+function attachPlayerControls() {
+  preview.addEventListener("play", async () => {
+    if (applyingRemote || !activeRoomId) return;
+    if (!canControl()) {
+      await applyRemoteState(authoritativeState, true);
+      return;
+    }
+    await sendPlaybackState("playing", preview.currentTime);
+  });
+
+  preview.addEventListener("pause", async () => {
+    if (applyingRemote || !activeRoomId) return;
+    if (!canControl()) {
+      if (authoritativeState.playbackState === "playing") {
+        await applyRemoteState(authoritativeState, true);
+      }
+      return;
+    }
+    await sendPlaybackState("paused", preview.currentTime);
+  });
+
+  preview.addEventListener("seeked", async () => {
+    if (applyingRemote || !activeRoomId) return;
+    if (!canControl()) {
+      await applyRemoteState(authoritativeState, true);
+      return;
+    }
+    await sendPlaybackState(preview.paused ? "paused" : "playing", preview.currentTime);
+  });
+}
+
+movieInput.addEventListener("change", async () => {
+  const file = movieInput.files && movieInput.files[0];
+  if (!file) return;
+
+  selectedFile = file;
+  fileName.textContent = file.name;
+  fileSize.textContent = formatSize(file.size);
+  fileInfo.style.display = "block";
+
+  if (objectUrl) URL.revokeObjectURL(objectUrl);
+  objectUrl = URL.createObjectURL(file);
+  preview.src = objectUrl;
+  preview.style.display = "block";
+  preview.load();
+
+  setStatus("Cargando información de la película...");
+
+  preview.onloadedmetadata = async () => {
+    const createButton = document.getElementById("create");
+    if (!currentRole) {
+      createButton.style.display = "block";
+      createButton.disabled = false;
+      createButton.textContent = "Crear sala";
+    }
+    const duration = Number.isFinite(preview.duration) ? preview.duration : 0;
+
+    if (currentRole === "host" && roomRef) {
+      try {
+        await updateDoc(roomRef, {
+          hostReady: true,
+          hostMovieName: file.name,
+          hostDuration: duration
+        });
+        setStatus("Tu película está lista. Esperando al invitado.");
+      } catch (error) {
+        setStatus("No se pudo registrar la película: " + error.message);
+      }
+    } else if (currentRole === "guest" && roomRef) {
+      try {
+        await updateDoc(roomRef, {
+          guestReady: true,
+          guestMovieName: file.name,
+          guestDuration: duration
+        });
+
+        const snap = await getDoc(roomRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          const hostDuration = Number(data.hostDuration || 0);
+          if (hostDuration && Math.abs(hostDuration - duration) > 2) {
+            setStatus("Atención: la duración de tu archivo no coincide con la del anfitrión. Comprueba que sea exactamente la misma versión.");
+          } else {
+            setStatus("¡Tu película está lista! Espera a que el anfitrión inicie.");
+          }
+        }
+      } catch (error) {
+        setStatus("No se pudo registrar tu película: " + error.message);
+      }
+    } else {
+      setStatus("Película cargada. Ahora puedes crear una sala.");
+    }
+  };
 });
 
-joinButton.addEventListener("click",async()=>{
- if(!currentUser){joinStatus.textContent="No hay conexión con Firebase.";return}const code=joinCode.value.trim();if(!code){joinStatus.textContent="Escribe el código de la sala.";return}
- joinButton.disabled=true;joinButton.textContent="Buscando sala...";joinStatus.textContent="";
- try{const roomRef=doc(db,"rooms",code);const roomSnap=await getDoc(roomRef);if(!roomSnap.exists()){joinStatus.textContent="No encontramos esa sala. Revisa el código.";return}const data=roomSnap.data();if(data.ownerUid===currentUser.uid){joinStatus.textContent="¡Esta es tu propia sala!";return}if(data.guestUid&&data.guestUid!==currentUser.uid){joinStatus.textContent="Esta sala ya tiene un invitado.";return}if(!data.guestUid)await updateDoc(roomRef,{guestUid:currentUser.uid});currentRole="guest";currentRoomId=code;joinStatus.textContent="¡Te uniste a la sala!";aviso.textContent="Preparando recepción de la película...";showRoomPanel(code);await startGuestConnection(code)}
- catch(error){joinStatus.textContent="Error: "+error.message;aviso.textContent="Error: "+error.message}finally{joinButton.disabled=false;joinButton.textContent="Unirse a la sala"}
+attachPlayerControls();
+
+try {
+  const credential = await signInAnonymously(auth);
+  currentUser = credential.user;
+  setStatus("¡Conectado a CineJuntos!");
+} catch (error) {
+  setStatus("Error de conexión con Firebase: " + error.message);
+}
+
+document.getElementById("create").addEventListener("click", async () => {
+  if (!currentUser) {
+    setStatus("No hay conexión con Firebase.");
+    return;
+  }
+  if (!selectedFile || preview.readyState < 1) {
+    setStatus("Primero selecciona una película y espera a que cargue.");
+    return;
+  }
+
+  const createButton = document.getElementById("create");
+  createButton.disabled = true;
+  createButton.textContent = "Creando sala...";
+
+  try {
+    const room = await addDoc(collection(db, "rooms"), {
+      ownerUid: currentUser.uid,
+      guestUid: null,
+      movieName: selectedFile.name,
+      hostMovieName: selectedFile.name,
+      hostDuration: Number.isFinite(preview.duration) ? preview.duration : 0,
+      hostReady: true,
+      guestReady: false,
+      status: "waiting",
+      allowGuestPlayback: true,
+      playbackState: "paused",
+      playbackTime: 0,
+      playbackBy: currentUser.uid,
+      playbackCommandId: null,
+      createdAt: serverTimestamp()
+    });
+
+    currentRole = "host";
+    activeRoomId = room.id;
+    roomInfo.style.display = "block";
+    roomCode.textContent = room.id;
+    roomCode.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(room.id);
+        setStatus("¡Código copiado!");
+      } catch (error) {
+        setStatus("No se pudo copiar el código. Mantén pulsado el código para copiarlo.");
+      }
+    };
+
+    renderRoomPanel({
+      hostReady: true,
+      guestReady: false,
+      allowGuestPlayback: true
+    });
+    startRoomListener(room.id);
+    createButton.textContent = "Sala creada";
+    setStatus("Sala creada. Comparte el código con tu amigo.");
+  } catch (error) {
+    setStatus("Error al crear la sala: " + error.message);
+    createButton.disabled = false;
+    createButton.textContent = "Crear sala";
+  }
+});
+
+document.getElementById("join").addEventListener("click", async () => {
+  if (!currentUser) {
+    joinStatus.textContent = "No hay conexión con Firebase.";
+    return;
+  }
+
+  const code = joinCode.value.trim();
+  if (!code) {
+    joinStatus.textContent = "Escribe el código de la sala.";
+    return;
+  }
+
+  joinButton.disabled = true;
+  joinButton.textContent = "Buscando sala...";
+  joinStatus.textContent = "";
+
+  try {
+    const ref = doc(db, "rooms", code);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      joinStatus.textContent = "No encontramos esa sala. Revisa el código.";
+      return;
+    }
+
+    const data = snap.data();
+
+    if (data.ownerUid === currentUser.uid) {
+      joinStatus.textContent = "¡Esta es tu propia sala!";
+      return;
+    }
+
+    if (data.guestUid && data.guestUid !== currentUser.uid) {
+      joinStatus.textContent = "Esta sala ya tiene un invitado.";
+      return;
+    }
+
+    if (!data.guestUid) {
+      await updateDoc(ref, { guestUid: currentUser.uid, guestReady: false });
+    }
+
+    currentRole = "guest";
+    document.getElementById("create").style.display = "none";
+    activeRoomId = code;
+    roomRef = ref;
+
+    renderRoomPanel(data);
+    startRoomListener(code);
+
+    joinStatus.textContent = "¡Te uniste a la sala!";
+    setStatus("Te uniste correctamente. Ahora selecciona la misma película que descargaste.");
+  } catch (error) {
+    joinStatus.textContent = "Error: " + error.message;
+  } finally {
+    joinButton.disabled = false;
+    joinButton.textContent = "Unirse a la sala";
+  }
 });
 </script>
 </body>
